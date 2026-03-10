@@ -1,0 +1,24 @@
+# Binaries
+runx
+runx.exe
+runx-*
+*.exe
+runx.cmd
+!.gitignore
+
+# Environment files with credentials
+.*env
+
+# Go build artifacts
+*.o
+*.a
+*.so
+
+# Test binary
+*.test
+
+# Coverage
+*.out
+
+# Go workspace file
+go.work

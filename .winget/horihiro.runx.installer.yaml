@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json
+
+PackageIdentifier: horihiro.runx
+PackageVersion: 0.0.0
+InstallerType: zip
+Installers:
+  - Architecture: x64
+    NestedInstallerType: portable
+    NestedInstallerFiles:
+      - RelativeFilePath: runx.exe
+        PortableCommandAlias: runx
+    InstallerUrl: https://github.com/horihiro/runx/releases/download/v0.0.0/runx-windows-amd64-v0.0.0.zip
+    InstallerSha256: PLACEHOLDER_SHA256
+ManifestType: installer
+ManifestVersion: 1.10.0
