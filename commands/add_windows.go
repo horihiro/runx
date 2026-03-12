@@ -441,7 +441,7 @@ func handlePathElevation(dir, command, originalCommand string, envFiles []string
 			fmt.Println("❌ Administrator privileges required to modify Machine PATH")
 			fmt.Println()
 			fmt.Println("Please run this command in an elevated terminal (Run as Administrator):")
-			fmt.Printf("  runx add %s --original=%s\n", command, originalCommand)
+			fmt.Printf("  runx add %s --alias=%s\n", originalCommand, command)
 			fmt.Println()
 			fmt.Println("Note: 'sudo cmd.exe' does not grant a Windows administrator token.")
 			fmt.Println("      Start Command Prompt/PowerShell with 'Run as administrator'.")

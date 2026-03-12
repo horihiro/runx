@@ -17,11 +17,6 @@ func AddCommand(args []string) error {
 		return err
 	}
 
-	// If no --original specified, originalCommand == command
-	if originalCommand == "" {
-		originalCommand = command
-	}
-
 	runxPath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to resolve runx path: %w", err)
@@ -104,8 +99,8 @@ func addCommandWindows(command, originalCommand string, envFiles []string, runxP
 
 		fmt.Println()
 		fmt.Println("Alternative options:")
-		fmt.Printf("  1. Create an alias shim: runx add my%s --original=%s --envfile=...\n", command, originalCommand)
-		fmt.Println("  2. Use runx exec directly: runx exec --envfile=... " + command)
+		fmt.Printf("  1. Create an alias shim: runx add %s --alias=my%s --envfile=...\n", originalCommand, originalCommand)
+		fmt.Println("  2. Use runx exec directly: runx exec --envfile=... " + originalCommand)
 		return nil
 	}
 
@@ -231,7 +226,7 @@ func handleWindowsPathSetupWithPrediction(command, shimDir, shimPath string, pat
 			if useAlias {
 				fmt.Println()
 				fmt.Printf("You can create a shim with an alias. For example:\n")
-				fmt.Printf("  runx add my%s --envfile=...\n", command)
+				fmt.Printf("  runx add %s --alias=my%s --envfile=...\n", command, command)
 				fmt.Println()
 			}
 			fmt.Println("Keeping current setup. Use 'runx exec' to run with environment:")
@@ -288,7 +283,7 @@ func handleWindowsPathSetupWithPrediction(command, shimDir, shimPath string, pat
 	if useAlias {
 		fmt.Println()
 		fmt.Printf("You can create a shim with an alias. For example:\n")
-		fmt.Printf("  runx add my%s --envfile=...\n", command)
+		fmt.Printf("  runx add %s --alias=my%s --envfile=...\n", command, command)
 		fmt.Println()
 	}
 
@@ -306,26 +301,26 @@ func addCommandLinux(command string, originalCommand string, envFiles []string, 
 
 func parseAddArgs(args []string) (string, string, []string, string, error) {
 	var envFiles []string
-	command := ""
+	aliasCommand := ""
 	originalCommand := ""
 	shellOverride := ""
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
-		if strings.HasPrefix(arg, "--original=") {
-			originalCommand = strings.TrimSpace(strings.TrimPrefix(arg, "--original="))
-			if originalCommand == "" {
-				return "", "", nil, "", fmt.Errorf("--original requires a value")
+		if strings.HasPrefix(arg, "--alias=") {
+			aliasCommand = strings.TrimSpace(strings.TrimPrefix(arg, "--alias="))
+			if aliasCommand == "" {
+				return "", "", nil, "", fmt.Errorf("--alias requires a value")
 			}
 			continue
 		}
-		if arg == "--original" {
+		if arg == "--alias" {
 			if i+1 >= len(args) {
-				return "", "", nil, "", fmt.Errorf("--original requires a value")
+				return "", "", nil, "", fmt.Errorf("--alias requires a value")
 			}
-			originalCommand = strings.TrimSpace(args[i+1])
-			if originalCommand == "" {
-				return "", "", nil, "", fmt.Errorf("--original requires a value")
+			aliasCommand = strings.TrimSpace(args[i+1])
+			if aliasCommand == "" {
+				return "", "", nil, "", fmt.Errorf("--alias requires a value")
 			}
 			i++
 			continue
@@ -371,17 +366,21 @@ func parseAddArgs(args []string) (string, string, []string, string, error) {
 		if strings.HasPrefix(arg, "-") {
 			return "", "", nil, "", fmt.Errorf("unknown option for add: %s", arg)
 		}
-		if command != "" {
-			return "", "", nil, "", fmt.Errorf("usage: runx add COMMAND [--envfile=FILE ...] [--original=CMD] [--shell=bash|zsh|fish]")
+		if originalCommand != "" {
+			return "", "", nil, "", fmt.Errorf("usage: runx add ORIGINAL_COMMAND [--alias=SHIM_NAME] [--envfile=FILE ...] [--shell=bash|zsh|fish]")
 		}
-		command = strings.TrimSpace(arg)
+		originalCommand = strings.TrimSpace(arg)
 	}
 
-	if command == "" {
-		return "", "", nil, "", fmt.Errorf("usage: runx add COMMAND [--envfile=FILE ...] [--original=CMD] [--shell=bash|zsh|fish]")
+	if originalCommand == "" {
+		return "", "", nil, "", fmt.Errorf("usage: runx add ORIGINAL_COMMAND [--alias=SHIM_NAME] [--envfile=FILE ...] [--shell=bash|zsh|fish]")
 	}
 
-	return command, originalCommand, envFiles, shellOverride, nil
+	if aliasCommand == "" {
+		aliasCommand = originalCommand
+	}
+
+	return aliasCommand, originalCommand, envFiles, shellOverride, nil
 }
 
 func buildShimWindows(command, originalCommand string, envFiles []string, runxPath, originalPath, shimDir string) (string, string) {
