@@ -34,6 +34,9 @@ func removeCommandWindows(command string) error {
 			return fmt.Errorf("failed to remove shim: %w", err)
 		}
 		fmt.Printf("Shim removed: %s\n", shimPath)
+		if err := cleanupUserShimDirPathIfEmpty(shimDir); err != nil {
+			return err
+		}
 		return nil
 	}
 	if !os.IsNotExist(err) {
@@ -65,6 +68,9 @@ func removeCommandWindows(command string) error {
 						return fmt.Errorf("failed to remove machine shim (try running as Administrator): %w", err)
 					}
 					fmt.Printf("Machine shim removed: %s\n", machineShim)
+					if err := cleanupMachineShimDirPathIfEmpty(machineDir); err != nil {
+						return err
+					}
 					return nil
 				}
 			}
@@ -81,5 +87,8 @@ func removeCommandWindows(command string) error {
 	}
 
 	fmt.Printf("Shim removed: %s\n", shimPath)
+	if err := cleanupUserShimDirPathIfEmpty(shimDir); err != nil {
+		return err
+	}
 	return nil
 }

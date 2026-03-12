@@ -546,6 +546,97 @@ func removeFromUserPath(dir string) error {
 	return setUserPath(newPath)
 }
 
+// removeFromMachinePath removes a directory from Machine PATH (requires admin).
+func removeFromMachinePath(dir string) error {
+	currentPath, err := getMachinePath()
+	if err != nil {
+		return err
+	}
+
+	entries := strings.Split(currentPath, ";")
+	var newEntries []string
+	for _, entry := range entries {
+		if !strings.EqualFold(strings.TrimSpace(entry), dir) {
+			newEntries = append(newEntries, entry)
+		}
+	}
+
+	newPath := strings.Join(newEntries, ";")
+	return setMachinePath(newPath)
+}
+
+func countManagedCmdShimsInDir(dir string) (int, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("failed to read shim directory %s: %w", dir, err)
+	}
+
+	count := 0
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.EqualFold(filepath.Ext(name), ".cmd") {
+			continue
+		}
+
+		fullPath := filepath.Join(dir, name)
+		managed, mErr := utils.IsManagedShim(fullPath)
+		if mErr != nil || !managed {
+			continue
+		}
+		count++
+	}
+
+	return count, nil
+}
+
+func cleanupUserShimDirPathIfEmpty(dir string) error {
+	count, err := countManagedCmdShimsInDir(dir)
+	if err != nil {
+		return err
+	}
+
+	if count == 0 {
+		if err := removeFromUserPath(dir); err != nil {
+			return fmt.Errorf("failed to remove from User PATH: %w", err)
+		}
+		fmt.Println("✓ Removed from User PATH (no user shims remain)")
+		return nil
+	}
+
+	fmt.Printf("✓ Kept User PATH entry: %d user shim(s) still present in %s\n", count, dir)
+	return nil
+}
+
+func cleanupMachineShimDirPathIfEmpty(dir string) error {
+	count, err := countManagedCmdShimsInDir(dir)
+	if err != nil {
+		return err
+	}
+
+	if count == 0 {
+		if err := removeFromMachinePath(dir); err != nil {
+			if isAccessDeniedError(err) {
+				fmt.Println("⚠ Machine PATH cleanup skipped: administrator privileges required")
+				fmt.Println("  Please remove this path from Machine PATH manually:")
+				fmt.Printf("    %s\n", dir)
+				return nil
+			}
+			return fmt.Errorf("failed to remove from Machine PATH: %w", err)
+		}
+		fmt.Println("✓ Removed from Machine PATH (no machine shims remain)")
+		return nil
+	}
+
+	fmt.Printf("✓ Kept Machine PATH entry: %d machine shim(s) still present in %s\n", count, dir)
+	return nil
+}
+
 // addToMachinePath adds a directory to the beginning of Machine PATH (requires admin)
 func addToMachinePath(dir string) error {
 	currentPath, err := getMachinePath()
@@ -817,11 +908,10 @@ func handlePathElevation(dir, command, originalCommand string, envFiles []string
 		fmt.Printf("✓ Removed old user shim: %s\n", userShimPath)
 	}
 
-	// Remove user-local shim directory from User PATH after successful Machine PATH update.
-	if err := removeFromUserPath(dir); err != nil {
-		return fmt.Errorf("failed to remove from User PATH: %w", err)
+	// Remove user-local shim directory from User PATH only if no managed user shims remain.
+	if err := cleanupUserShimDirPathIfEmpty(dir); err != nil {
+		return err
 	}
-	fmt.Println("✓ Removed from User PATH")
 
 	// Verify resolution again against machine shim path.
 	shimFirst, actualPath, err := verifyPathResolution(command, shimPath)
