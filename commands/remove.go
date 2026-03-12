@@ -187,7 +187,8 @@ func removeCommandLinuxPosix(command, shellName string) error {
 	}
 
 	fmt.Printf("Function removed from %s\n", rcPath)
-	fmt.Printf("Note: Run 'source %s' or restart your shell for changes to take effect.\n", rcPath)
+	fmt.Println("Note: 'source' alone may not remove an already-loaded function from the current shell session.")
+	fmt.Println("      Please restart your shell, or run: unset -f " + command)
 	return nil
 }
 
@@ -216,5 +217,7 @@ func removeCommandLinuxFish(command string) error {
 	}
 
 	fmt.Printf("Fish function removed: %s\n", functionPath)
+	fmt.Println("Note: If the function is already loaded in the current fish session,")
+	fmt.Println("      restart fish or run: functions -e " + command)
 	return nil
 }
