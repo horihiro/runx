@@ -337,7 +337,7 @@ func windowsShimDir() (string, error) {
 		}
 		localAppData = filepath.Join(home, "AppData", "Local")
 	}
-	return filepath.Join(localAppData, "runx", "bin"), nil
+	return filepath.Join(localAppData, "runx", "shim"), nil
 }
 
 func isDirInPath(target string) bool {
@@ -595,6 +595,27 @@ func countManagedCmdShimsInDir(dir string) (int, error) {
 	return count, nil
 }
 
+func removeDirIfEmpty(dir string) (bool, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to read shim directory %s: %w", dir, err)
+	}
+	if len(entries) != 0 {
+		return false, nil
+	}
+
+	if err := os.Remove(dir); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to remove empty shim directory %s: %w", dir, err)
+	}
+	return true, nil
+}
+
 func cleanupUserShimDirPathIfEmpty(dir string) error {
 	count, err := countManagedCmdShimsInDir(dir)
 	if err != nil {
@@ -606,6 +627,13 @@ func cleanupUserShimDirPathIfEmpty(dir string) error {
 			return fmt.Errorf("failed to remove from User PATH: %w", err)
 		}
 		fmt.Println("✓ Removed from User PATH (no user shims remain)")
+		removed, err := removeDirIfEmpty(dir)
+		if err != nil {
+			return err
+		}
+		if removed {
+			fmt.Printf("✓ Removed empty user shim directory: %s\n", dir)
+		}
 		return nil
 	}
 
@@ -625,11 +653,26 @@ func cleanupMachineShimDirPathIfEmpty(dir string) error {
 				fmt.Println("⚠ Machine PATH cleanup skipped: administrator privileges required")
 				fmt.Println("  Please remove this path from Machine PATH manually:")
 				fmt.Printf("    %s\n", dir)
+			} else {
+				return fmt.Errorf("failed to remove from Machine PATH: %w", err)
+			}
+		} else {
+			fmt.Println("✓ Removed from Machine PATH (no machine shims remain)")
+		}
+
+		removed, dErr := removeDirIfEmpty(dir)
+		if dErr != nil {
+			if isAccessDeniedError(dErr) {
+				fmt.Println("⚠ Machine shim directory cleanup skipped: administrator privileges required")
+				fmt.Println("  Please remove this empty directory manually if needed:")
+				fmt.Printf("    %s\n", dir)
 				return nil
 			}
-			return fmt.Errorf("failed to remove from Machine PATH: %w", err)
+			return dErr
 		}
-		fmt.Println("✓ Removed from Machine PATH (no machine shims remain)")
+		if removed {
+			fmt.Printf("✓ Removed empty machine shim directory: %s\n", dir)
+		}
 		return nil
 	}
 

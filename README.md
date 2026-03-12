@@ -112,7 +112,7 @@ runx add terraform --alias=mytf --envfile=.env
 
 1. Checks if original command exists in Machine PATH or User PATH
 2. If in **Machine PATH**: Recommends creating a Machine shim (requires admin privileges)
-3. If in **User PATH** or not found: Creates User shim in `%LOCALAPPDATA%\runx\bin`
+3. If in **User PATH** or not found: Creates User shim in `%LOCALAPPDATA%\runx\shim`
 4. Automatically adds shim directory to User PATH if needed
 5. Handles PATH priority conflicts intelligently
 
