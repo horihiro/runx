@@ -1,10 +1,11 @@
 # runx - Environment-Aware Command Shim Manager
 
-`runx` is a cross-platform tool that creates command shims (wrappers) that automatically load environment variables from files before executing commands. Useful for managing cloud profiles, API keys, runtime settings, or any directory-scoped configuration.
+`runx` is an environment-aware command shim manager—a cross-platform tool that creates command shims (wrappers) that automatically load environment variables from files before executing commands. Useful for managing cloud profiles, API keys, runtime settings, or any directory-scoped configuration.
 
 ## Features
 
 - **🔧 Cross-Platform**: Works on Windows, Linux, and macOS
+- **📦 Single Binary, No Runtime Required**: Just one executable, no separate runtime installation needed
 - **📁 Directory-Based Context**: Automatically searches for environment files from current directory to root, then home directory
 - **🔄 Multiple Environment Files**: Merge multiple `.env` files with later values overriding earlier ones
 - **🎯 Command Shims**: Create persistent command wrappers that automatically load the correct environment
@@ -85,7 +86,7 @@ runx exec echo "Hello"
 Create a command shim that automatically loads specified environment files.
 
 ```bash
-runx add COMMAND [--envfile=NAME ...] [--original=COMMAND] [--shell=bash|zsh|fish]
+runx add ORIGINAL_COMMAND [--alias=SHIM_NAME] [--envfile=NAME ...] [--shell=bash|zsh|fish]
 ```
 
 **Examples:**
@@ -104,7 +105,7 @@ runx add kubectl --envfile=k8s.env --shell=zsh
 runx add node --envfile=base.env --envfile=dev.env
 
 # Alias shim name (mytf executes original terraform)
-runx add mytf --original=terraform --envfile=.env
+runx add terraform --alias=mytf --envfile=.env
 ```
 
 **What happens on Windows:**
@@ -289,7 +290,7 @@ $ node app.js
 
 ```bash
 # Create project-specific shim name that executes terraform
-runx add mytf --original=terraform --envfile=.env
+runx add terraform --alias=mytf --envfile=.env
 
 # Original 'terraform' still works normally
 # 'mytf' runs original 'terraform' with environment loaded by runx
