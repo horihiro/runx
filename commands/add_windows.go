@@ -17,6 +17,361 @@ import (
 	"horihiro.net/runx/commands/utils"
 )
 
+func addCommandPlatform(command, originalCommand string, envFiles []string, shellOverride, runxPath string) error {
+	if shellOverride != "" {
+		return fmt.Errorf("--shell is supported only on Linux")
+	}
+	return addCommandWindows(command, originalCommand, envFiles, runxPath)
+}
+
+func addCommandWindows(command, originalCommand string, envFiles []string, runxPath string) error {
+	shimDir, err := windowsShimDir()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(shimDir, 0755); err != nil {
+		return fmt.Errorf("failed to create shim directory: %w", err)
+	}
+
+	pathInEnv := isDirInPath(shimDir)
+	originalPaths := findWindowsCommandPaths(originalCommand) // Get ALL paths for original command
+	originalPath := ""
+	originalPathSource := "neither"
+	for _, p := range originalPaths {
+		managed, mErr := utils.IsManagedShim(p)
+		if mErr != nil || managed {
+			continue // skip runx-managed shims; the real command is further down
+		}
+		originalPath = p
+		originalPathSource = determinePathSource(filepath.Dir(p))
+		break
+	}
+
+	// Check if the shim name (command) conflicts with an existing non-shim entry in Machine PATH.
+	// Skipping runx-managed shims avoids false positives when a same-named shim already exists.
+	// When no alias is used command == originalCommand, so reuse the lookup above.
+	// When an alias is used, check the alias name separately.
+	shimConflictPath := ""
+	shimConflictSource := "neither"
+	if command == originalCommand {
+		shimConflictPath = originalPath
+		shimConflictSource = originalPathSource
+	} else {
+		aliasPaths := findWindowsCommandPaths(command)
+		for _, p := range aliasPaths {
+			managed, mErr := utils.IsManagedShim(p)
+			if mErr != nil || managed {
+				continue
+			}
+			shimConflictPath = p
+			shimConflictSource = determinePathSource(filepath.Dir(shimConflictPath))
+			break
+		}
+	}
+
+	// If the shim name is already in Machine PATH, User shim will never take precedence.
+	if shimConflictSource == "machine" {
+		fmt.Println()
+		fmt.Println("┌────────────────────────────────────────────────────────────────┐")
+		fmt.Println("│ Machine PATH Detected                                          │")
+		fmt.Println("└────────────────────────────────────────────────────────────────┘")
+		fmt.Println()
+		fmt.Printf("The command '%s' is already in Machine PATH:\n", command)
+		fmt.Printf("  Location: %s\n", shimConflictPath)
+		fmt.Println()
+		fmt.Println("Windows prioritizes Machine PATH over User PATH.")
+		fmt.Println("Creating a User shim will not work - the Machine PATH entry will")
+		fmt.Println("always take precedence.")
+		fmt.Println()
+		fmt.Println("Recommendation: Create a Machine shim instead.")
+		fmt.Println("  • Requires administrator privileges")
+		fmt.Println("  • Will be placed in: C:\\ProgramData\\runx\\shim")
+		fmt.Println("  • Will be added to Machine PATH (system-wide)")
+		fmt.Println()
+		fmt.Print("Create Machine shim now? (y/N): ")
+
+		var response string
+		if _, err := fmt.Scanln(&response); err != nil && err.Error() != "unexpected newline" {
+			return nil
+		}
+
+		response = strings.ToLower(strings.TrimSpace(response))
+		if response == "y" || response == "yes" {
+			return handlePathElevation(shimDir, command, originalCommand, envFiles, runxPath, shimConflictPath)
+		}
+
+		fmt.Println()
+		fmt.Println("Alternative options:")
+		if command == originalCommand {
+			fmt.Printf("  1. Create an alias shim: runx add %s --alias=my%s --envfile=...\n", originalCommand, originalCommand)
+			fmt.Println("  2. Use runx exec directly: runx exec --envfile=... " + originalCommand)
+		} else {
+			fmt.Println("  1. Choose a different alias name that is not in Machine PATH")
+			fmt.Println("  2. Use runx exec directly: runx exec --envfile=... " + originalCommand)
+		}
+		return nil
+	}
+
+	shimPath, content := buildShimWindows(command, originalCommand, envFiles, runxPath, originalPath, shimDir)
+	precedesOriginal := true
+	if pathInEnv && originalPath != "" {
+		shimIdx, okShim := pathEntryIndex(shimDir)
+		originalIdx, okOriginal := pathEntryIndex(filepath.Dir(originalPath))
+		if okShim && okOriginal {
+			precedesOriginal = shimIdx < originalIdx
+		}
+	}
+
+	overwriting := false
+	if info, err := os.Stat(shimPath); err == nil {
+		if info.IsDir() {
+			return fmt.Errorf("shim path is a directory: %s", shimPath)
+		}
+		managed, mErr := utils.IsManagedShim(shimPath)
+		if mErr != nil {
+			return mErr
+		}
+		if !managed {
+			return fmt.Errorf("refusing to overwrite unmanaged file: %s", shimPath)
+		}
+		overwriting = true
+	}
+
+	// Show what will be created and ask for confirmation
+	fmt.Println("This will create a user shim:")
+	fmt.Printf("  Command: %s\n", command)
+	if command != originalCommand {
+		fmt.Printf("  Original command: %s\n", originalCommand)
+	}
+	fmt.Printf("  Path: %s\n", shimPath)
+	if len(envFiles) > 0 {
+		fmt.Printf("  Environment files: %v\n", envFiles)
+	} else {
+		fmt.Println("  Environment files: (none)")
+	}
+	if originalPath != "" {
+		fmt.Printf("  Current command path: %s\n", originalPath)
+		if originalPathSource == "user" {
+			fmt.Println("  Original command location: User PATH ✓")
+		}
+		if len(originalPaths) > 1 {
+			fmt.Println("  Other matches in PATH:")
+			for _, p := range originalPaths[1:] {
+				fmt.Printf("    - %s\n", p)
+			}
+		}
+	} else {
+		fmt.Println("  Current command path: (not found)")
+	}
+	if !pathInEnv {
+		fmt.Println("  Warning: shim directory is not in PATH")
+		fmt.Printf("  Hint: add `%s` to User PATH environment variable\n", shimDir)
+	} else if !precedesOriginal {
+		fmt.Println("  Warning: shim directory appears after the original command in PATH")
+		fmt.Println("  Note: on Windows, Machine PATH entries take precedence over User PATH")
+		fmt.Println("  If original command is in System/Machine PATH, it will always run first")
+		fmt.Print("        regardless of User PATH order. ")
+		fmt.Println("Please manually reorder System PATH or check PATH via 'echo %PATH%'")
+	}
+	if overwriting {
+		fmt.Println("  Action: Overwrite existing shim")
+	} else {
+		fmt.Println("  Action: Create new shim")
+	}
+	fmt.Println()
+	fmt.Print("Proceed? (y/N): ")
+
+	var response string
+	if _, err := fmt.Scanln(&response); err != nil && err.Error() != "unexpected newline" {
+		return fmt.Errorf("failed to read input: %w", err)
+	}
+
+	response = strings.ToLower(strings.TrimSpace(response))
+	if response != "y" && response != "yes" {
+		fmt.Println("Cancelled.")
+		return nil
+	}
+
+	if err := os.WriteFile(shimPath, []byte(content), 0755); err != nil {
+		return fmt.Errorf("failed to write shim: %w", err)
+	}
+
+	fmt.Printf("User shim created: %s\n", shimPath)
+	return handleWindowsPathSetupWithPrediction(command, shimDir, shimPath, pathInEnv, envFiles, runxPath)
+}
+
+// handleWindowsPathSetupWithPrediction checks if shimPath is already resolvable via where,
+// and only promotes to User PATH addition if needed.
+func handleWindowsPathSetupWithPrediction(command, shimDir, shimPath string, pathInEnv bool, envFiles []string, runxPath string) error {
+	// First, check if shim is already resolvable (either already in PATH or existing)
+	fmt.Println()
+	fmt.Println("Checking if shim is resolvable...")
+
+	shimFirst, resolvedPath, err := verifyPathResolution(command, shimPath)
+	if err == nil {
+		if shimFirst {
+			// Shim already resolves correctly!
+			fmt.Printf("✓ User shim will be used when you run: %s\n", command)
+			fmt.Println("Please restart your terminal for changes to take effect")
+			return nil
+		}
+
+		// Found something else - either need to elevate or add to User PATH
+		fmt.Printf("⚠ Currently resolves to: %s\n", resolvedPath)
+
+		if pathInEnv {
+			// Shim dir is in PATH but something else takes priority (Machine PATH)
+			elevate, useAlias := promptElevatePath(shimDir, command, resolvedPath)
+			if elevate {
+				return handlePathElevation(shimDir, command, command, envFiles, runxPath, resolvedPath)
+			}
+			if useAlias {
+				fmt.Println()
+				fmt.Printf("You can create a shim with an alias. For example:\n")
+				fmt.Printf("  runx add %s --alias=my%s --envfile=...\n", command, command)
+				fmt.Println()
+			}
+			fmt.Println("Keeping current setup. Use 'runx exec' to run with environment:")
+			fmt.Printf("  runx exec --envfile=... %s\n", command)
+			return nil
+		}
+
+		// Not in PATH yet - need to add it
+	}
+
+	// Either where failed or command not found - need to add to User PATH
+	if !pathInEnv {
+		if !promptAddToPath(shimDir) {
+			fmt.Println("Skipped adding to PATH. You can manually add it later:")
+			fmt.Printf("  %s\n", shimDir)
+			return nil
+		}
+
+		// Add to User PATH
+		if err := addToUserPath(shimDir); err != nil {
+			fmt.Printf("Warning: Failed to add to User PATH: %v\n", err)
+			fmt.Println("You can manually add it to your PATH environment variable.")
+			return nil
+		}
+		fmt.Println("✓ Added to User PATH successfully")
+	}
+
+	// Now verify again after adding to User PATH
+	fmt.Println()
+	fmt.Println("Verifying PATH resolution using registry PATH order...")
+	shimFirst, actualPath, err := verifyPathResolution(command, shimPath)
+	if err != nil {
+		fmt.Printf("⚠ Could not verify PATH resolution: %v\n", err)
+		fmt.Println("Please restart your terminal and test manually.")
+		return nil
+	}
+
+	if shimFirst {
+		fmt.Printf("✓ User shim will be used when you run: %s\n", command)
+		fmt.Println("Please restart your terminal for changes to take effect")
+		return nil
+	}
+
+	// Still blocked by Machine PATH even after adding to User PATH
+	fmt.Printf("⚠ Warning: '%s' still resolves to: %s\n", command, actualPath)
+
+	// Ask user if they want to elevate to Machine PATH
+	elevate, useAlias := promptElevatePath(shimDir, command, actualPath)
+
+	if elevate {
+		return handlePathElevation(shimDir, command, command, envFiles, runxPath, actualPath)
+	}
+
+	if useAlias {
+		fmt.Println()
+		fmt.Printf("You can create a shim with an alias. For example:\n")
+		fmt.Printf("  runx add %s --alias=my%s --envfile=...\n", command, command)
+		fmt.Println()
+	}
+
+	fmt.Println("Keeping current setup. Use 'runx exec' to run with environment:")
+	fmt.Printf("  runx exec --envfile=... %s\n", command)
+	return nil
+}
+
+func buildShimWindows(command, originalCommand string, envFiles []string, runxPath, originalPath, shimDir string) (string, string) {
+	shimPath := filepath.Join(shimDir, command+".cmd")
+
+	var args []string
+	for _, f := range envFiles {
+		args = append(args, "--envfile="+utils.QuoteForCmd(f))
+	}
+	args = append(args, utils.QuoteForCmd(originalCommand), "%*")
+
+	var content strings.Builder
+	content.WriteString("@echo off\r\n")
+	content.WriteString("REM " + utils.ShimMarker + " (user shim)\r\n")
+	content.WriteString("setlocal\r\n")
+	content.WriteString("set \"RUNX_SHIM_DIR=%~dp0\"\r\n")
+	content.WriteString("if defined RUNX_SHIM_DIRS (set \"RUNX_SHIM_DIRS=%RUNX_SHIM_DIR%;%RUNX_SHIM_DIRS%\") else (set \"RUNX_SHIM_DIRS=%RUNX_SHIM_DIR%\")\r\n")
+	content.WriteString("if exist " + utils.QuoteForCmd(runxPath) + " (\r\n")
+	content.WriteString("  " + utils.QuoteForCmd(runxPath) + " exec " + strings.Join(args, " ") + "\r\n")
+	content.WriteString("  set \"RUNX_EXIT_CODE=%ERRORLEVEL%\"\r\n")
+	content.WriteString("  endlocal & exit /b %RUNX_EXIT_CODE%\r\n")
+	content.WriteString(")\r\n")
+
+	if strings.TrimSpace(originalPath) != "" {
+		content.WriteString("if exist " + utils.QuoteForCmd(originalPath) + " (\r\n")
+		content.WriteString("  " + utils.QuoteForCmd(originalPath) + " %*\r\n")
+		content.WriteString("  set \"RUNX_EXIT_CODE=%ERRORLEVEL%\"\r\n")
+		content.WriteString("  endlocal & exit /b %RUNX_EXIT_CODE%\r\n")
+		content.WriteString(")\r\n")
+	}
+
+	content.WriteString("echo command not found: " + originalCommand + " 1>&2\r\n")
+	content.WriteString("endlocal & exit /b 9009\r\n")
+	return shimPath, content.String()
+}
+
+func windowsShimDir() (string, error) {
+	localAppData := strings.TrimSpace(os.Getenv("LOCALAPPDATA"))
+	if localAppData == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve LOCALAPPDATA and home directory: %w", err)
+		}
+		localAppData = filepath.Join(home, "AppData", "Local")
+	}
+	return filepath.Join(localAppData, "runx", "bin"), nil
+}
+
+func isDirInPath(target string) bool {
+	_, ok := pathEntryIndex(target)
+	return ok
+}
+
+func pathEntryIndex(target string) (int, bool) {
+	target = strings.ToLower(filepath.Clean(target))
+	entries := filepath.SplitList(os.Getenv("PATH"))
+	for i, entry := range entries {
+		if strings.ToLower(filepath.Clean(entry)) == target {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
+func findWindowsCommandPaths(command string) []string {
+	out, err := exec.Command("where", command).CombinedOutput()
+	if err != nil {
+		return []string{}
+	}
+	var paths []string
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		paths = append(paths, line)
+	}
+	return paths
+}
+
 const (
 	hwndBroadcast   = 0xffff
 	wmSettingChange = 0x001A
