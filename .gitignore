@@ -6,6 +6,8 @@ runx-*
 runx.cmd
 !.gitignore
 
+*.deb
+
 # Environment files with credentials
 .*env
 
