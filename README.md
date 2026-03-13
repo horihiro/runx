@@ -13,6 +13,81 @@
 - **🔐 Windows PATH Management**: Smart User/Machine PATH detection with automatic privilege escalation when needed
 - **🐛 Debug Mode**: Set `RUNX_DEBUG=1` or `RUNX_DEBUG=2` for detailed environment file resolution tracing
 
+## Installation
+
+Install from GitHub Release Assets.
+
+### Ubuntu (.deb)
+
+1. Open the releases page: `https://github.com/horihiro/runx/releases`
+2. Open the release for the version you want to install (tag example: `v0.1.0`).
+3. Download the `.deb` asset for your architecture.
+	- `amd64`: `runx_<version>_amd64.deb`
+	- `arm64`: `runx_<version>_arm64.deb`
+4. Install with `apt`:
+
+```bash
+sudo apt install ./runx_<version>_<arch>.deb
+```
+
+5. Verify:
+
+```bash
+runx --version
+```
+
+### Windows (winget + manifest zip)
+
+1. Open the releases page: `https://github.com/horihiro/runx/releases`
+2. Open the release for the version you want to install (tag example: `v0.1.0`).
+3. Download `winget-manifest-<tag>.zip` from Release Assets.
+4. Extract the zip to a local directory.
+5. Install using `winget` with the extracted manifest files:
+
+```powershell
+winget install --manifest <ExtractedDirectory>
+```
+
+6. Verify:
+
+```powershell
+runx --version
+```
+
+### Manual Install (No Package Manager)
+
+#### Linux/macOS
+
+1. Open the releases page: `https://github.com/horihiro/runx/releases`
+2. Open the release for the version you want.
+3. Download the archive for your OS/arch.
+	- Linux: `runx-linux-amd64-<tag>.tar.gz`, `runx-linux-arm64-<tag>.tar.gz`
+	- macOS: `runx-darwin-amd64-<tag>.tar.gz`, `runx-darwin-arm64-<tag>.tar.gz`
+4. Extract and install the binary:
+
+```bash
+tar xzf runx-<os>-<arch>-<tag>.tar.gz
+sudo install -m 0755 runx /usr/local/bin/runx
+```
+
+5. Verify:
+
+```bash
+runx --version
+```
+
+#### Windows
+
+1. Open the releases page: `https://github.com/horihiro/runx/releases`
+2. Open the release for the version you want.
+3. Download `runx-windows-amd64-<tag>.zip`.
+4. Extract `runx.exe` and place it in a directory included in your `PATH`.
+5. Verify:
+
+```powershell
+runx --version
+```
+
 ## Build
 
 ### Cross-compilation
