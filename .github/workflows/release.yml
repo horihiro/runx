@@ -136,7 +136,7 @@ jobs:
           LICENSE: MIT
           BINARY_NAME: runx
         run: |
-          mkdir -p dist
+          mkdir -p dist .nfpm
           cp runx dist/runx
           chmod +x dist/runx
 
