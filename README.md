@@ -13,7 +13,39 @@
 - **🔐 Windows PATH Management**: Smart User/Machine PATH detection with automatic privilege escalation when needed
 - **🐛 Debug Mode**: Set `RUNX_DEBUG=1` or `RUNX_DEBUG=2` for detailed environment file resolution tracing
 
+## Install
+
+Download artifacts from GitHub Releases:
+
+https://github.com/horihiro/runx/releases
+
+### Linux (deb package)
+
+```bash
+sudo apt install ./runx_<version>_<arch>.deb
+runx --version
+```
+
+### Linux/macOS (tar.gz)
+
+```bash
+tar xzf runx-<os>-<arch>-<tag>.tar.gz
+sudo install -m 0755 runx /usr/local/bin/runx
+runx --version
+```
+
+### Windows (winget manifest artifact)
+
+Download and extract `winget-manifest-<tag>.zip` from Releases, then run:
+
+```powershell
+winget install --manifest <ExtractedDirectory>
+runx --version
+```
+
 ## Build
+
+You can also build `runx` from source instead of using release artifacts.
 
 ### Cross-compilation
 
