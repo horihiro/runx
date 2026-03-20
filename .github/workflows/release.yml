@@ -233,12 +233,12 @@ jobs:
 
       - name: Create manifest archive
         run: |
-          zip -j winget-manifest-${{ steps.version.outputs.tag }}.zip .winget/horihiro.runx.yaml .winget/horihiro.runx.installer.yaml .winget/horihiro.runx.locale.en-US.yaml
+          zip -j runx-winget-manifest-${{ steps.version.outputs.tag }}.zip .winget/horihiro.runx.yaml .winget/horihiro.runx.installer.yaml .winget/horihiro.runx.locale.en-US.yaml
       - name: Upload updated manifest to release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            winget-manifest-${{ steps.version.outputs.tag }}.zip
+            runx-winget-manifest-${{ steps.version.outputs.tag }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
