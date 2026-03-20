@@ -33,6 +33,8 @@ func run(args []string) error {
 		return commands.RemoveCommand(args[1:])
 	case "list":
 		return commands.ListCommand(args[1:])
+	case "show":
+		return commands.ShowCommand(args[1:])
 	case "help", "--help", "-h":
 		printHelp()
 		return nil
@@ -52,6 +54,7 @@ func printHelp() {
 	fmt.Println("  runx add ORIGINAL_COMMAND [--alias=PROXY_NAME] [--envfile=NAME ...] [--shell=bash|zsh|fish]")
 	fmt.Println("  runx remove COMMAND [--shell=bash|zsh|fish]")
 	fmt.Println("  runx list [--shell=bash|zsh|fish]")
+	fmt.Println("  runx show COMMAND_OR_ALIAS [--shell=bash|zsh|fish]")
 	fmt.Println("  runx help")
 	fmt.Println("  runx version")
 	fmt.Println()
@@ -60,6 +63,7 @@ func printHelp() {
 	fmt.Println("  runx add az --alias=mycmd --envfile=a.env --envfile=b.env --shell=zsh")
 	fmt.Println("  runx remove mycmd --shell=fish")
 	fmt.Println("  runx list --shell=bash")
+	fmt.Println("  runx show az --shell=zsh")
 	fmt.Println()
 	fmt.Println("NOTES:")
 	fmt.Println("  - --envfile accepts a file name or absolute path")
