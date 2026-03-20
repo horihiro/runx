@@ -313,15 +313,9 @@ $ runx exec --envfile=staging.env curl https://api.example.com
 
 ## Architecture
 
-See architecture details for Windows proxy and Bash function behavior:
+See architecture details for Windows/Linux proxy behavior, including User vs Machine proxy selection on Windows:
 
 - [docs/architecture.md](docs/architecture.md)
-
-## Windows: User Proxy vs Machine Proxy
-
-See detailed guidance:
-
-- [docs/windows-proxy-vs-machine-proxy.md](docs/windows-proxy-vs-machine-proxy.md)
 
 ## Troubleshooting
 
