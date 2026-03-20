@@ -1,8 +1,15 @@
 # Architecture
 
+This document covers two core parts of the `runx` architecture:
+
+- how command proxies are implemented and executed across platforms
+- how env files are discovered and merged when one or more `--envfile` options are used
+
+## Command Proxy Execution Architecture
+
 `runx` implements command proxies differently depending on the platform. On Linux/macOS, proxies use shell functions for transparency and simplicity. On Windows, proxies use `.cmd` files to integrate with PATH, with support for both user-level and machine-level deployment.
 
-## Linux/macOS: Shell Functions
+### Linux/macOS: Shell Functions
 
 On Linux/macOS, proxies are implemented as shell functions in config files (`~/.bashrc`, `~/.zshrc`, or `~/.config/fish/config.fish`):
 
@@ -16,11 +23,11 @@ mytf() {
 
 The `RUNX_PROXY_ACTIVE` flag tells `runx exec` that we're being called from a proxy function, so it uses `command -v` to bypass the function and find the real command.
 
-## Windows: .cmd Files
+### Windows: .cmd Files
 
 On Windows, proxies are implemented as wrapper `.cmd` files in one of two proxy types—User Proxy or Machine Proxy—based on where the original command exists:
 
-### User Proxy
+#### User Proxy
 
 Located in `%LOCALAPPDATA%\runx\proxy\`, no admin privileges required:
 
@@ -49,20 +56,20 @@ exit /b 9009
 
 User proxies are added to the User PATH. They work when the original command is in User PATH or not found in Machine PATH.
 
-### Machine Proxy
+#### Machine Proxy
 
 Located in `C:\ProgramData\runx\proxy\`, requires administrator privileges.
 
 Machine proxies are added to the Machine PATH (system-wide) and take precedence over User PATH entries. Use this when the original command is in System32 or other Machine PATH locations.
 
-### Choosing Between User and Machine Proxy
+#### Choosing Between User and Machine Proxy
 
 Windows has two PATH types with different precedence:
 
 - **Machine PATH**: System-wide, requires admin privileges, **higher priority**
 - **User PATH**: Per-user, no admin needed, lower priority
 
-#### When to Use Each
+##### When to Use Each
 
 | Scenario | Proxy Type | Reason |
 |----------|------------------|--------|
@@ -70,7 +77,7 @@ Windows has two PATH types with different precedence:
 | Original in User PATH | User Proxy | Same priority level works |
 | Command not found | User Proxy | Easier, no admin needed |
 
-#### Automatic Detection
+##### Automatic Detection
 
 `runx add` automatically detects where the original command exists and recommends the appropriate proxy type. If the original command is found in Machine PATH, `runx` will prompt to create a Machine Proxy:
 
@@ -95,10 +102,107 @@ Recommendation: Create a Machine Proxy instead.
 Create Machine proxy now? (y/N):
 ```
 
-### Proxy Directory Exclusion
+#### Proxy Directory Exclusion
 
 To prevent infinite recursion, `runx exec` excludes proxy directories when resolving commands:
 - Uses `RUNX_PROXY_DIR` and `RUNX_PROXY_DIRS` environment variables to track all proxy directories
 - Searches PATH while skipping these directories  
 - Finds the real command executable
+
+## Env File Resolution and Merge
+
+When multiple `--envfile` options are provided (for example in `runx add` or `runx exec`), `runx` processes them from left to right in the order they were specified.
+
+### Per-file Resolution
+
+Each env file value is resolved independently:
+
+1. If the value is an absolute path, only that exact path is checked.
+2. If the value is a filename, lookup is performed at command execution time in this order:
+  - current directory
+  - each parent directory up to filesystem root
+  - home directory
+
+Example (`--envfile=.env`):
+
+```text
+/
+├── workspace/
+│   └── work/
+│       ├── .env                       # checked on parent walk
+│       └── project/
+│           ├── .env                   # checked on parent walk
+│           └── service/               # current working directory
+│               └── (no .env)
+└── home/
+    └── alice/
+        └── .env                       # checked last (home fallback)
+```
+
+If the current working directory is `/workspace/work/project/service`, `runx` checks in this order:
+
+1. `/workspace/work/project/service/.env`
+2. `/workspace/work/project/.env`
+3. `/workspace/work/.env`
+4. `/workspace/.env`
+5. `/home/alice/.env`
+
+In this tree, `/workspace/work/project/.env` is the first existing match, so that file is adopted for this envfile entry.
+
+If a specified env file is not found, `runx` continues with the next specified env file. If a file is found but has invalid syntax, execution fails with an error.
+
+### Merge Semantics
+
+Resolved env files are merged in the same left-to-right order as the CLI arguments.
+
+- First file provides initial values.
+- Later files override keys from earlier files.
+- Within one file, if the same key appears multiple times, the last occurrence in that file is used.
+
+This is a standard "later wins" merge model.
+
+Example:
+
+```bash
+runx add az --envfile=.base.env --envfile=.team.env --envfile=.local.env
+```
+
+For overlapping keys, precedence is:
+
+1. `.base.env`
+2. `.team.env`
+3. `.local.env` (highest)
+
+Example file contents:
+
+```dotenv
+# .base.env
+AZURE_CONFIG_DIR=~/.azure_default
+AZURE_CORE_OUTPUT=table
+HTTP_PROXY=http://proxy.base:8080
+```
+
+```dotenv
+# .team.env
+AZURE_CORE_OUTPUT=json
+HTTP_PROXY=http://proxy.team:8080
+TEAM_NAME=platform
+```
+
+```dotenv
+# .local.env
+AZURE_CONFIG_DIR=~/.azure_personal
+TEAM_NAME=platform-dev
+```
+
+Final merged result at execution time:
+
+```dotenv
+AZURE_CONFIG_DIR=~/.azure_personal
+AZURE_CORE_OUTPUT=json
+HTTP_PROXY=http://proxy.team:8080
+TEAM_NAME=platform-dev
+```
+
+In this result, values from later files override earlier ones, while keys that appear only once are kept as-is.
 
