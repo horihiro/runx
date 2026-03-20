@@ -28,7 +28,7 @@ func ExecCommand(args []string) error {
 		printEnvMergeDebug(debugLevel, resolvedEnvFiles, mergedDetails)
 	}
 
-	// Resolve command path, avoiding shim directories on Windows
+	// Resolve command path, avoiding proxy directories on Windows
 	cmdPath, err := resolveCommandPath(commandArgs[0])
 	if err != nil {
 		return fmt.Errorf("failed to resolve command: %w", err)
@@ -162,17 +162,17 @@ func parseExecArgs(args []string) ([]string, []string, error) {
 }
 
 func resolveCommandPath(command string) (string, error) {
-	// If called from shim, need to find real command
-	shimActive := os.Getenv("RUNX_SHIM_ACTIVE")
-	shimDir := os.Getenv("RUNX_SHIM_DIR")
-	shimDirs := collectShimDirs(shimDir, os.Getenv("RUNX_SHIM_DIRS"))
+	// If called from proxy, need to find real command
+	proxyActive := os.Getenv("RUNX_PROXY_ACTIVE")
+	proxyDir := os.Getenv("RUNX_PROXY_DIR")
+	proxyDirs := collectProxyDirs(proxyDir, os.Getenv("RUNX_PROXY_DIRS"))
 
-	if runtime.GOOS == "windows" && len(shimDirs) > 0 {
-		// On Windows, exclude all shim directories (user shim and machine shim)
-		return findCommandExcludingDirs(command, shimDirs)
+	if runtime.GOOS == "windows" && len(proxyDirs) > 0 {
+		// On Windows, exclude all proxy directories (user proxy and machine proxy)
+		return findCommandExcludingDirs(command, proxyDirs)
 	}
 
-	if runtime.GOOS != "windows" && shimActive != "" {
+	if runtime.GOOS != "windows" && proxyActive != "" {
 		// On Unix, use 'command -v' to bypass shell functions
 		return findCommandViaShell(command)
 	}
@@ -185,7 +185,7 @@ func resolveCommandPath(command string) (string, error) {
 	return path, nil
 }
 
-func collectShimDirs(primary string, rawList string) []string {
+func collectProxyDirs(primary string, rawList string) []string {
 	seen := map[string]bool{}
 	var dirs []string
 
@@ -241,7 +241,7 @@ func findCommandExcludingDirs(command string, excludeDirs []string) (string, err
 			continue
 		}
 
-		// Skip shim directories (both user shim and machine shim)
+		// Skip proxy directories (both user proxy and machine proxy)
 		if excluded[strings.ToLower(dir)] {
 			continue
 		}
@@ -260,7 +260,7 @@ func findCommandExcludingDirs(command string, excludeDirs []string) (string, err
 		}
 	}
 
-	return "", fmt.Errorf("command not found in PATH (excluding shim directories): %s", command)
+	return "", fmt.Errorf("command not found in PATH (excluding proxy directories): %s", command)
 }
 
 func findCommandViaShell(command string) (string, error) {

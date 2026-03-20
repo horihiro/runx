@@ -37,7 +37,7 @@ func removeCommandLinuxPosix(command, shellName string) error {
 		return fmt.Errorf("failed to read shell rc file: %w", err)
 	}
 
-	marker := "# " + utils.ShimMarker + " " + command
+	marker := "# " + utils.ProxyMarker + " " + command
 	foundMarker := false
 	for _, line := range strings.Split(string(content), "\n") {
 		if strings.TrimSpace(line) == marker {
@@ -99,7 +99,7 @@ func removeCommandLinuxFish(command string) error {
 		return fmt.Errorf("failed to read fish function file: %w", err)
 	}
 
-	marker := "# " + utils.ShimMarker + " " + command
+	marker := "# " + utils.ProxyMarker + " " + command
 	if !strings.Contains(string(content), marker) {
 		return fmt.Errorf("file is not a runx-generated fish function: %s", functionPath)
 	}

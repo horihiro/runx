@@ -1,17 +1,17 @@
 # Troubleshooting
 
-## Windows: Shim not working after creation
+## Windows: Proxy not working after creation
 
-**Symptoms**: Created a User shim but command still uses original without environment.
+**Symptoms**: Created a User proxy but command still uses original without environment.
 
 **Cause**: Original command is in Machine PATH, which has higher priority.
 
-**Solution**: Remove User shim and create Machine shim:
+**Solution**: Remove User proxy and create Machine proxy:
 
 ```cmd
 runx remove terraform
 runx add terraform --envfile=.env
-# Answer "y" when prompted to create Machine shim
+# Answer "y" when prompted to create Machine proxy
 ```
 
 ## Linux: Function not found
@@ -53,19 +53,19 @@ runx exec --envfile=.env terraform plan
 # [runx][debug]     - /home/user/.env
 ```
 
-## Multiple shims interfering
+## Multiple proxies interfering
 
 **Symptoms**: Command behaves unexpectedly or uses wrong environment.
 
-**Cause**: Multiple tools creating shims for the same command.
+**Cause**: Multiple tools creating proxies for the same command.
 
 **Solution**:
 
 ```bash
-# List all runx shims
+# List all runx proxies
 runx list
 
-# Remove conflicting shim
+# Remove conflicting proxy
 runx remove terraform
 
 # Recreate with correct settings

@@ -7,13 +7,13 @@
 #      runx add az --envfile=.azclienv
 # 3. Run Azure CLI commands as usual (runx will apply .azclienv automatically):
 #      az account show
-# 4. If shims are not active in your current shell, restart the shell.
+# 4. If proxies are not active in your current shell, restart the shell.
 #
 # Manual mode (if needed):
 #   runx exec --envfile=.azclienv -- az account show
 #
 # Notes:
-# - Values in this file are loaded only for commands executed via the runx shim.
+# - Values in this file are loaded only for commands executed via the runx proxy.
 # - Keep secrets out of git. Commit only .azclienv.example, not your real .azclienv.
 
 # Azure CLI configuration directory (default: ~/.azure)

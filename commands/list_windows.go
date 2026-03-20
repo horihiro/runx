@@ -13,20 +13,20 @@ import (
 	"horihiro.net/runx/commands/utils"
 )
 
-func listShimsPlatform(shellOverride string) ([]string, error) {
+func listProxiesPlatform(shellOverride string) ([]string, error) {
 	if shellOverride != "" {
 		return nil, fmt.Errorf("--shell is supported only on Linux")
 	}
 	candidateDirs := []string{}
 
-	if shimDir, err := windowsShimDir(); err == nil {
-		candidateDirs = append(candidateDirs, shimDir)
+	if proxyDir, err := windowsProxyDir(); err == nil {
+		candidateDirs = append(candidateDirs, proxyDir)
 	}
-	if machineDir, err := machineShimDir(); err == nil {
+	if machineDir, err := machineProxyDir(); err == nil {
 		candidateDirs = append(candidateDirs, machineDir)
 	}
 
-	// Backward compatibility: shims created by old versions next to runx.
+	// Backward compatibility: proxies created by old versions next to runx.
 	runxPath, err := os.Executable()
 	if err == nil {
 		runxPath, _ = filepath.EvalSymlinks(runxPath)
@@ -42,7 +42,7 @@ func listShimsPlatform(shellOverride string) ([]string, error) {
 			if os.IsNotExist(err) {
 				continue
 			}
-			return nil, fmt.Errorf("failed to read shim directory %s: %w", dir, err)
+			return nil, fmt.Errorf("failed to read proxy directory %s: %w", dir, err)
 		}
 
 		for _, entry := range entries {
@@ -55,7 +55,7 @@ func listShimsPlatform(shellOverride string) ([]string, error) {
 			}
 
 			fullPath := filepath.Join(dir, name)
-			managed, err := utils.IsManagedShim(fullPath)
+			managed, err := utils.IsManagedProxy(fullPath)
 			if err != nil || !managed {
 				continue
 			}

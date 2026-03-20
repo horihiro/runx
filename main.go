@@ -45,11 +45,11 @@ func run(args []string) error {
 }
 
 func printHelp() {
-	fmt.Println("runx - run command with merged env files and shim management")
+	fmt.Println("runx - run command with merged env files and proxy management")
 	fmt.Println()
 	fmt.Println("USAGE:")
 	fmt.Println("  runx exec [--envfile=NAME ...] COMMAND [ARGS...]")
-	fmt.Println("  runx add ORIGINAL_COMMAND [--alias=SHIM_NAME] [--envfile=NAME ...] [--shell=bash|zsh|fish]")
+	fmt.Println("  runx add ORIGINAL_COMMAND [--alias=PROXY_NAME] [--envfile=NAME ...] [--shell=bash|zsh|fish]")
 	fmt.Println("  runx remove COMMAND [--shell=bash|zsh|fish]")
 	fmt.Println("  runx list [--shell=bash|zsh|fish]")
 	fmt.Println("  runx help")
@@ -66,6 +66,6 @@ func printHelp() {
 	fmt.Println("  - file name: searched from current dir to root, then home dir")
 	fmt.Println("  - absolute path: only that file is checked")
 	fmt.Println("  - for exec: env files are merged in order; later files override earlier values")
-	fmt.Println("  - Linux shim shells: auto-detected from $SHELL (bash|zsh|fish), override with --shell")
-	fmt.Println("  - shims: Linux uses shell function files/config, Windows uses %LOCALAPPDATA%\\runx\\bin")
+	fmt.Println("  - Linux proxy shells: auto-detected from $SHELL (bash|zsh|fish), override with --shell")
+	fmt.Println("  - proxies: Linux uses shell function files/config, Windows uses %LOCALAPPDATA%\\runx\\bin")
 }

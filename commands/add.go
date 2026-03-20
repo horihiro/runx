@@ -27,7 +27,7 @@ func AddCommand(args []string) error {
 	runxBase := filepath.Base(runxPath)
 
 	if command == strings.TrimSuffix(runxBase, filepath.Ext(runxBase)) {
-		return fmt.Errorf("cannot create shim for runx itself")
+		return fmt.Errorf("cannot create proxy for runx itself")
 	}
 
 	return addCommandPlatform(command, originalCommand, envFiles, shellOverride, runxPath)
@@ -101,13 +101,13 @@ func parseAddArgs(args []string) (string, string, []string, string, error) {
 			return "", "", nil, "", fmt.Errorf("unknown option for add: %s", arg)
 		}
 		if originalCommand != "" {
-			return "", "", nil, "", fmt.Errorf("usage: runx add ORIGINAL_COMMAND [--alias=SHIM_NAME] [--envfile=FILE ...] [--shell=bash|zsh|fish]")
+			return "", "", nil, "", fmt.Errorf("usage: runx add ORIGINAL_COMMAND [--alias=PROXY_NAME] [--envfile=FILE ...] [--shell=bash|zsh|fish]")
 		}
 		originalCommand = strings.TrimSpace(arg)
 	}
 
 	if originalCommand == "" {
-		return "", "", nil, "", fmt.Errorf("usage: runx add ORIGINAL_COMMAND [--alias=SHIM_NAME] [--envfile=FILE ...] [--shell=bash|zsh|fish]")
+		return "", "", nil, "", fmt.Errorf("usage: runx add ORIGINAL_COMMAND [--alias=PROXY_NAME] [--envfile=FILE ...] [--shell=bash|zsh|fish]")
 	}
 
 	if aliasCommand == "" {

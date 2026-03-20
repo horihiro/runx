@@ -25,70 +25,70 @@ func addCommandPlatform(command, originalCommand string, envFiles []string, shel
 }
 
 func addCommandWindows(command, originalCommand string, envFiles []string, runxPath string) error {
-	shimDir, err := windowsShimDir()
+	proxyDir, err := windowsProxyDir()
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(shimDir, 0755); err != nil {
-		return fmt.Errorf("failed to create shim directory: %w", err)
+	if err := os.MkdirAll(proxyDir, 0755); err != nil {
+		return fmt.Errorf("failed to create proxy directory: %w", err)
 	}
 
-	pathInEnv := isDirInPath(shimDir)
+	pathInEnv := isDirInPath(proxyDir)
 	originalPaths := findWindowsCommandPaths(originalCommand) // Get ALL paths for original command
 	originalPath := ""
 	originalPathSource := "neither"
 	for _, p := range originalPaths {
-		managed, mErr := utils.IsManagedShim(p)
+		managed, mErr := utils.IsManagedProxy(p)
 		if mErr != nil || managed {
-			continue // skip runx-managed shims; the real command is further down
+			continue // skip runx-managed proxies; the real command is further down
 		}
 		originalPath = p
 		originalPathSource = determinePathSource(filepath.Dir(p))
 		break
 	}
 
-	// Check if the shim name (command) conflicts with an existing non-shim entry in Machine PATH.
-	// Skipping runx-managed shims avoids false positives when a same-named shim already exists.
+	// Check if the proxy name (command) conflicts with an existing non-proxy entry in Machine PATH.
+	// Skipping runx-managed proxies avoids false positives when a same-named proxy already exists.
 	// When no alias is used command == originalCommand, so reuse the lookup above.
 	// When an alias is used, check the alias name separately.
-	shimConflictPath := ""
-	shimConflictSource := "neither"
+	proxyConflictPath := ""
+	proxyConflictSource := "neither"
 	if command == originalCommand {
-		shimConflictPath = originalPath
-		shimConflictSource = originalPathSource
+		proxyConflictPath = originalPath
+		proxyConflictSource = originalPathSource
 	} else {
 		aliasPaths := findWindowsCommandPaths(command)
 		for _, p := range aliasPaths {
-			managed, mErr := utils.IsManagedShim(p)
+			managed, mErr := utils.IsManagedProxy(p)
 			if mErr != nil || managed {
 				continue
 			}
-			shimConflictPath = p
-			shimConflictSource = determinePathSource(filepath.Dir(shimConflictPath))
+			proxyConflictPath = p
+			proxyConflictSource = determinePathSource(filepath.Dir(proxyConflictPath))
 			break
 		}
 	}
 
-	// If the shim name is already in Machine PATH, User shim will never take precedence.
-	if shimConflictSource == "machine" {
+	// If the proxy name is already in Machine PATH, User proxy will never take precedence.
+	if proxyConflictSource == "machine" {
 		fmt.Println()
 		fmt.Println("┌────────────────────────────────────────────────────────────────┐")
 		fmt.Println("│ Machine PATH Detected                                          │")
 		fmt.Println("└────────────────────────────────────────────────────────────────┘")
 		fmt.Println()
 		fmt.Printf("The command '%s' is already in Machine PATH:\n", command)
-		fmt.Printf("  Location: %s\n", shimConflictPath)
+		fmt.Printf("  Location: %s\n", proxyConflictPath)
 		fmt.Println()
 		fmt.Println("Windows prioritizes Machine PATH over User PATH.")
-		fmt.Println("Creating a User shim will not work - the Machine PATH entry will")
+		fmt.Println("Creating a User proxy will not work - the Machine PATH entry will")
 		fmt.Println("always take precedence.")
 		fmt.Println()
-		fmt.Println("Recommendation: Create a Machine shim instead.")
+		fmt.Println("Recommendation: Create a Machine proxy instead.")
 		fmt.Println("  • Requires administrator privileges")
-		fmt.Println("  • Will be placed in: C:\\ProgramData\\runx\\shim")
+		fmt.Println("  • Will be placed in: C:\\ProgramData\\runx\\proxy")
 		fmt.Println("  • Will be added to Machine PATH (system-wide)")
 		fmt.Println()
-		fmt.Print("Create Machine shim now? (y/N): ")
+		fmt.Print("Create Machine proxy now? (y/N): ")
 
 		var response string
 		if _, err := fmt.Scanln(&response); err != nil && err.Error() != "unexpected newline" {
@@ -97,13 +97,13 @@ func addCommandWindows(command, originalCommand string, envFiles []string, runxP
 
 		response = strings.ToLower(strings.TrimSpace(response))
 		if response == "y" || response == "yes" {
-			return handlePathElevation(shimDir, command, originalCommand, envFiles, runxPath, shimConflictPath)
+			return handlePathElevation(proxyDir, command, originalCommand, envFiles, runxPath, proxyConflictPath)
 		}
 
 		fmt.Println()
 		fmt.Println("Alternative options:")
 		if command == originalCommand {
-			fmt.Printf("  1. Create an alias shim: runx add %s --alias=my%s --envfile=...\n", originalCommand, originalCommand)
+			fmt.Printf("  1. Create an alias proxy: runx add %s --alias=my%s --envfile=...\n", originalCommand, originalCommand)
 			fmt.Println("  2. Use runx exec directly: runx exec --envfile=... " + originalCommand)
 		} else {
 			fmt.Println("  1. Choose a different alias name that is not in Machine PATH")
@@ -112,38 +112,38 @@ func addCommandWindows(command, originalCommand string, envFiles []string, runxP
 		return nil
 	}
 
-	shimPath, content := buildShimWindows(command, originalCommand, envFiles, runxPath, originalPath, shimDir)
+	proxyPath, content := buildProxyWindows(command, originalCommand, envFiles, runxPath, originalPath, proxyDir)
 	precedesOriginal := true
 	if pathInEnv && originalPath != "" {
-		shimIdx, okShim := pathEntryIndex(shimDir)
+		proxyIdx, okProxy := pathEntryIndex(proxyDir)
 		originalIdx, okOriginal := pathEntryIndex(filepath.Dir(originalPath))
-		if okShim && okOriginal {
-			precedesOriginal = shimIdx < originalIdx
+		if okProxy && okOriginal {
+			precedesOriginal = proxyIdx < originalIdx
 		}
 	}
 
 	overwriting := false
-	if info, err := os.Stat(shimPath); err == nil {
+	if info, err := os.Stat(proxyPath); err == nil {
 		if info.IsDir() {
-			return fmt.Errorf("shim path is a directory: %s", shimPath)
+			return fmt.Errorf("proxy path is a directory: %s", proxyPath)
 		}
-		managed, mErr := utils.IsManagedShim(shimPath)
+		managed, mErr := utils.IsManagedProxy(proxyPath)
 		if mErr != nil {
 			return mErr
 		}
 		if !managed {
-			return fmt.Errorf("refusing to overwrite unmanaged file: %s", shimPath)
+			return fmt.Errorf("refusing to overwrite unmanaged file: %s", proxyPath)
 		}
 		overwriting = true
 	}
 
 	// Show what will be created and ask for confirmation
-	fmt.Println("This will create a user shim:")
+	fmt.Println("This will create a user proxy:")
 	fmt.Printf("  Command: %s\n", command)
 	if command != originalCommand {
 		fmt.Printf("  Original command: %s\n", originalCommand)
 	}
-	fmt.Printf("  Path: %s\n", shimPath)
+	fmt.Printf("  Path: %s\n", proxyPath)
 	if len(envFiles) > 0 {
 		fmt.Printf("  Environment files: %v\n", envFiles)
 	} else {
@@ -164,19 +164,19 @@ func addCommandWindows(command, originalCommand string, envFiles []string, runxP
 		fmt.Println("  Current command path: (not found)")
 	}
 	if !pathInEnv {
-		fmt.Println("  Warning: shim directory is not in PATH")
-		fmt.Printf("  Hint: add `%s` to User PATH environment variable\n", shimDir)
+		fmt.Println("  Warning: proxy directory is not in PATH")
+		fmt.Printf("  Hint: add `%s` to User PATH environment variable\n", proxyDir)
 	} else if !precedesOriginal {
-		fmt.Println("  Warning: shim directory appears after the original command in PATH")
+		fmt.Println("  Warning: proxy directory appears after the original command in PATH")
 		fmt.Println("  Note: on Windows, Machine PATH entries take precedence over User PATH")
 		fmt.Println("  If original command is in System/Machine PATH, it will always run first")
 		fmt.Print("        regardless of User PATH order. ")
 		fmt.Println("Please manually reorder System PATH or check PATH via 'echo %PATH%'")
 	}
 	if overwriting {
-		fmt.Println("  Action: Overwrite existing shim")
+		fmt.Println("  Action: Overwrite existing proxy")
 	} else {
-		fmt.Println("  Action: Create new shim")
+		fmt.Println("  Action: Create new proxy")
 	}
 	fmt.Println()
 	fmt.Print("Proceed? (y/N): ")
@@ -192,26 +192,26 @@ func addCommandWindows(command, originalCommand string, envFiles []string, runxP
 		return nil
 	}
 
-	if err := os.WriteFile(shimPath, []byte(content), 0755); err != nil {
-		return fmt.Errorf("failed to write shim: %w", err)
+	if err := os.WriteFile(proxyPath, []byte(content), 0755); err != nil {
+		return fmt.Errorf("failed to write proxy: %w", err)
 	}
 
-	fmt.Printf("User shim created: %s\n", shimPath)
-	return handleWindowsPathSetupWithPrediction(command, shimDir, shimPath, pathInEnv, envFiles, runxPath)
+	fmt.Printf("User proxy created: %s\n", proxyPath)
+	return handleWindowsPathSetupWithPrediction(command, proxyDir, proxyPath, pathInEnv, envFiles, runxPath)
 }
 
-// handleWindowsPathSetupWithPrediction checks if shimPath is already resolvable via where,
+// handleWindowsPathSetupWithPrediction checks if proxyPath is already resolvable via where,
 // and only promotes to User PATH addition if needed.
-func handleWindowsPathSetupWithPrediction(command, shimDir, shimPath string, pathInEnv bool, envFiles []string, runxPath string) error {
-	// First, check if shim is already resolvable (either already in PATH or existing)
+func handleWindowsPathSetupWithPrediction(command, proxyDir, proxyPath string, pathInEnv bool, envFiles []string, runxPath string) error {
+	// First, check if proxy is already resolvable (either already in PATH or existing)
 	fmt.Println()
-	fmt.Println("Checking if shim is resolvable...")
+	fmt.Println("Checking if proxy is resolvable...")
 
-	shimFirst, resolvedPath, err := verifyPathResolution(command, shimPath)
+	proxyFirst, resolvedPath, err := verifyPathResolution(command, proxyPath)
 	if err == nil {
-		if shimFirst {
-			// Shim already resolves correctly!
-			fmt.Printf("✓ User shim will be used when you run: %s\n", command)
+		if proxyFirst {
+			// Proxy already resolves correctly!
+			fmt.Printf("✓ User proxy will be used when you run: %s\n", command)
 			fmt.Println("Please restart your terminal for changes to take effect")
 			return nil
 		}
@@ -220,14 +220,14 @@ func handleWindowsPathSetupWithPrediction(command, shimDir, shimPath string, pat
 		fmt.Printf("⚠ Currently resolves to: %s\n", resolvedPath)
 
 		if pathInEnv {
-			// Shim dir is in PATH but something else takes priority (Machine PATH)
-			elevate, useAlias := promptElevatePath(shimDir, command, resolvedPath)
+			// Proxy dir is in PATH but something else takes priority (Machine PATH)
+			elevate, useAlias := promptElevatePath(proxyDir, command, resolvedPath)
 			if elevate {
-				return handlePathElevation(shimDir, command, command, envFiles, runxPath, resolvedPath)
+				return handlePathElevation(proxyDir, command, command, envFiles, runxPath, resolvedPath)
 			}
 			if useAlias {
 				fmt.Println()
-				fmt.Printf("You can create a shim with an alias. For example:\n")
+				fmt.Printf("You can create a proxy with an alias. For example:\n")
 				fmt.Printf("  runx add %s --alias=my%s --envfile=...\n", command, command)
 				fmt.Println()
 			}
@@ -241,14 +241,14 @@ func handleWindowsPathSetupWithPrediction(command, shimDir, shimPath string, pat
 
 	// Either where failed or command not found - need to add to User PATH
 	if !pathInEnv {
-		if !promptAddToPath(shimDir) {
+		if !promptAddToPath(proxyDir) {
 			fmt.Println("Skipped adding to PATH. You can manually add it later:")
-			fmt.Printf("  %s\n", shimDir)
+			fmt.Printf("  %s\n", proxyDir)
 			return nil
 		}
 
 		// Add to User PATH
-		if err := addToUserPath(shimDir); err != nil {
+		if err := addToUserPath(proxyDir); err != nil {
 			fmt.Printf("Warning: Failed to add to User PATH: %v\n", err)
 			fmt.Println("You can manually add it to your PATH environment variable.")
 			return nil
@@ -259,15 +259,15 @@ func handleWindowsPathSetupWithPrediction(command, shimDir, shimPath string, pat
 	// Now verify again after adding to User PATH
 	fmt.Println()
 	fmt.Println("Verifying PATH resolution using registry PATH order...")
-	shimFirst, actualPath, err := verifyPathResolution(command, shimPath)
+	proxyFirst, actualPath, err := verifyPathResolution(command, proxyPath)
 	if err != nil {
 		fmt.Printf("⚠ Could not verify PATH resolution: %v\n", err)
 		fmt.Println("Please restart your terminal and test manually.")
 		return nil
 	}
 
-	if shimFirst {
-		fmt.Printf("✓ User shim will be used when you run: %s\n", command)
+	if proxyFirst {
+		fmt.Printf("✓ User proxy will be used when you run: %s\n", command)
 		fmt.Println("Please restart your terminal for changes to take effect")
 		return nil
 	}
@@ -276,15 +276,15 @@ func handleWindowsPathSetupWithPrediction(command, shimDir, shimPath string, pat
 	fmt.Printf("⚠ Warning: '%s' still resolves to: %s\n", command, actualPath)
 
 	// Ask user if they want to elevate to Machine PATH
-	elevate, useAlias := promptElevatePath(shimDir, command, actualPath)
+	elevate, useAlias := promptElevatePath(proxyDir, command, actualPath)
 
 	if elevate {
-		return handlePathElevation(shimDir, command, command, envFiles, runxPath, actualPath)
+		return handlePathElevation(proxyDir, command, command, envFiles, runxPath, actualPath)
 	}
 
 	if useAlias {
 		fmt.Println()
-		fmt.Printf("You can create a shim with an alias. For example:\n")
+		fmt.Printf("You can create a proxy with an alias. For example:\n")
 		fmt.Printf("  runx add %s --alias=my%s --envfile=...\n", command, command)
 		fmt.Println()
 	}
@@ -294,8 +294,8 @@ func handleWindowsPathSetupWithPrediction(command, shimDir, shimPath string, pat
 	return nil
 }
 
-func buildShimWindows(command, originalCommand string, envFiles []string, runxPath, originalPath, shimDir string) (string, string) {
-	shimPath := filepath.Join(shimDir, command+".cmd")
+func buildProxyWindows(command, originalCommand string, envFiles []string, runxPath, originalPath, proxyDir string) (string, string) {
+	proxyPath := filepath.Join(proxyDir, command+".cmd")
 
 	var args []string
 	for _, f := range envFiles {
@@ -305,10 +305,10 @@ func buildShimWindows(command, originalCommand string, envFiles []string, runxPa
 
 	var content strings.Builder
 	content.WriteString("@echo off\r\n")
-	content.WriteString("REM " + utils.ShimMarker + " (user shim)\r\n")
+	content.WriteString("REM " + utils.ProxyMarker + " (user proxy)\r\n")
 	content.WriteString("setlocal\r\n")
-	content.WriteString("set \"RUNX_SHIM_DIR=%~dp0\"\r\n")
-	content.WriteString("if defined RUNX_SHIM_DIRS (set \"RUNX_SHIM_DIRS=%RUNX_SHIM_DIR%;%RUNX_SHIM_DIRS%\") else (set \"RUNX_SHIM_DIRS=%RUNX_SHIM_DIR%\")\r\n")
+	content.WriteString("set \"RUNX_PROXY_DIR=%~dp0\"\r\n")
+	content.WriteString("if defined RUNX_PROXY_DIRS (set \"RUNX_PROXY_DIRS=%RUNX_PROXY_DIR%;%RUNX_PROXY_DIRS%\") else (set \"RUNX_PROXY_DIRS=%RUNX_PROXY_DIR%\")\r\n")
 	content.WriteString("if exist " + utils.QuoteForCmd(runxPath) + " (\r\n")
 	content.WriteString("  " + utils.QuoteForCmd(runxPath) + " exec " + strings.Join(args, " ") + "\r\n")
 	content.WriteString("  set \"RUNX_EXIT_CODE=%ERRORLEVEL%\"\r\n")
@@ -325,10 +325,10 @@ func buildShimWindows(command, originalCommand string, envFiles []string, runxPa
 
 	content.WriteString("echo command not found: " + originalCommand + " 1>&2\r\n")
 	content.WriteString("endlocal & exit /b 9009\r\n")
-	return shimPath, content.String()
+	return proxyPath, content.String()
 }
 
-func windowsShimDir() (string, error) {
+func windowsProxyDir() (string, error) {
 	localAppData := strings.TrimSpace(os.Getenv("LOCALAPPDATA"))
 	if localAppData == "" {
 		home, err := os.UserHomeDir()
@@ -337,7 +337,7 @@ func windowsShimDir() (string, error) {
 		}
 		localAppData = filepath.Join(home, "AppData", "Local")
 	}
-	return filepath.Join(localAppData, "runx", "shim"), nil
+	return filepath.Join(localAppData, "runx", "proxy"), nil
 }
 
 func isDirInPath(target string) bool {
@@ -451,7 +451,7 @@ func promptAddToPath(dir string) bool {
 	fmt.Println("│ PATH Configuration Required                                    │")
 	fmt.Println("└────────────────────────────────────────────────────────────────┘")
 	fmt.Println()
-	fmt.Printf("The shim directory is not in your User PATH:\n  %s\n\n", dir)
+	fmt.Printf("The proxy directory is not in your User PATH:\n  %s\n\n", dir)
 	fmt.Println("Would you like runx to add it to your User PATH now?")
 	fmt.Println()
 	fmt.Println("This will:")
@@ -565,13 +565,13 @@ func removeFromMachinePath(dir string) error {
 	return setMachinePath(newPath)
 }
 
-func countManagedCmdShimsInDir(dir string) (int, error) {
+func countManagedCmdProxiesInDir(dir string) (int, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return 0, nil
 		}
-		return 0, fmt.Errorf("failed to read shim directory %s: %w", dir, err)
+		return 0, fmt.Errorf("failed to read proxy directory %s: %w", dir, err)
 	}
 
 	count := 0
@@ -585,7 +585,7 @@ func countManagedCmdShimsInDir(dir string) (int, error) {
 		}
 
 		fullPath := filepath.Join(dir, name)
-		managed, mErr := utils.IsManagedShim(fullPath)
+		managed, mErr := utils.IsManagedProxy(fullPath)
 		if mErr != nil || !managed {
 			continue
 		}
@@ -601,7 +601,7 @@ func removeDirIfEmpty(dir string) (bool, error) {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
-		return false, fmt.Errorf("failed to read shim directory %s: %w", dir, err)
+		return false, fmt.Errorf("failed to read proxy directory %s: %w", dir, err)
 	}
 	if len(entries) != 0 {
 		return false, nil
@@ -611,13 +611,13 @@ func removeDirIfEmpty(dir string) (bool, error) {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
-		return false, fmt.Errorf("failed to remove empty shim directory %s: %w", dir, err)
+		return false, fmt.Errorf("failed to remove empty proxy directory %s: %w", dir, err)
 	}
 	return true, nil
 }
 
-func cleanupUserShimDirPathIfEmpty(dir string) error {
-	count, err := countManagedCmdShimsInDir(dir)
+func cleanupUserProxyDirPathIfEmpty(dir string) error {
+	count, err := countManagedCmdProxiesInDir(dir)
 	if err != nil {
 		return err
 	}
@@ -626,23 +626,23 @@ func cleanupUserShimDirPathIfEmpty(dir string) error {
 		if err := removeFromUserPath(dir); err != nil {
 			return fmt.Errorf("failed to remove from User PATH: %w", err)
 		}
-		fmt.Println("✓ Removed from User PATH (no user shims remain)")
+		fmt.Println("✓ Removed from User PATH (no user proxies remain)")
 		removed, err := removeDirIfEmpty(dir)
 		if err != nil {
 			return err
 		}
 		if removed {
-			fmt.Printf("✓ Removed empty user shim directory: %s\n", dir)
+			fmt.Printf("✓ Removed empty user proxy directory: %s\n", dir)
 		}
 		return nil
 	}
 
-	fmt.Printf("✓ Kept User PATH entry: %d user shim(s) still present in %s\n", count, dir)
+	fmt.Printf("✓ Kept User PATH entry: %d user proxy(s) still present in %s\n", count, dir)
 	return nil
 }
 
-func cleanupMachineShimDirPathIfEmpty(dir string) error {
-	count, err := countManagedCmdShimsInDir(dir)
+func cleanupMachineProxyDirPathIfEmpty(dir string) error {
+	count, err := countManagedCmdProxiesInDir(dir)
 	if err != nil {
 		return err
 	}
@@ -657,13 +657,13 @@ func cleanupMachineShimDirPathIfEmpty(dir string) error {
 				return fmt.Errorf("failed to remove from Machine PATH: %w", err)
 			}
 		} else {
-			fmt.Println("✓ Removed from Machine PATH (no machine shims remain)")
+			fmt.Println("✓ Removed from Machine PATH (no machine proxies remain)")
 		}
 
 		removed, dErr := removeDirIfEmpty(dir)
 		if dErr != nil {
 			if isAccessDeniedError(dErr) {
-				fmt.Println("⚠ Machine shim directory cleanup skipped: administrator privileges required")
+				fmt.Println("⚠ Machine proxy directory cleanup skipped: administrator privileges required")
 				fmt.Println("  Please remove this empty directory manually if needed:")
 				fmt.Printf("    %s\n", dir)
 				return nil
@@ -671,12 +671,12 @@ func cleanupMachineShimDirPathIfEmpty(dir string) error {
 			return dErr
 		}
 		if removed {
-			fmt.Printf("✓ Removed empty machine shim directory: %s\n", dir)
+			fmt.Printf("✓ Removed empty machine proxy directory: %s\n", dir)
 		}
 		return nil
 	}
 
-	fmt.Printf("✓ Kept Machine PATH entry: %d machine shim(s) still present in %s\n", count, dir)
+	fmt.Printf("✓ Kept Machine PATH entry: %d machine proxy(s) still present in %s\n", count, dir)
 	return nil
 }
 
@@ -735,23 +735,23 @@ func determinePathSource(dir string) string {
 	return "neither"
 }
 
-func machineShimDir() (string, error) {
+func machineProxyDir() (string, error) {
 	programData := strings.TrimSpace(os.Getenv("ProgramData"))
 	if programData == "" {
 		programData = filepath.Join(`C:\`, "ProgramData")
 	}
-	return filepath.Join(programData, "runx", "shim"), nil
+	return filepath.Join(programData, "runx", "proxy"), nil
 }
 
-func machineShimPath(command string) (string, error) {
-	dir, err := machineShimDir()
+func machineProxyPath(command string) (string, error) {
+	dir, err := machineProxyDir()
 	if err != nil {
 		return "", err
 	}
 	return filepath.Join(dir, command+".cmd"), nil
 }
 
-func buildMachineShim(originalCommand string, envFiles []string, runxPath, originalPath string) string {
+func buildMachineProxy(originalCommand string, envFiles []string, runxPath, originalPath string) string {
 	var content strings.Builder
 	var runxArgs []string
 	for _, f := range envFiles {
@@ -760,10 +760,10 @@ func buildMachineShim(originalCommand string, envFiles []string, runxPath, origi
 	runxArgs = append(runxArgs, utils.QuoteForCmd(originalCommand), "%*")
 
 	content.WriteString("@echo off\r\n")
-	content.WriteString("REM generated by runx add (machine shim)\r\n")
+	content.WriteString("REM generated by runx add (machine proxy)\r\n")
 	content.WriteString("setlocal\r\n")
-	content.WriteString("set \"RUNX_SHIM_DIR=%~dp0\"\r\n")
-	content.WriteString("if defined RUNX_SHIM_DIRS (set \"RUNX_SHIM_DIRS=%RUNX_SHIM_DIR%;%RUNX_SHIM_DIRS%\") else (set \"RUNX_SHIM_DIRS=%RUNX_SHIM_DIR%\")\r\n")
+	content.WriteString("set \"RUNX_PROXY_DIR=%~dp0\"\r\n")
+	content.WriteString("if defined RUNX_PROXY_DIRS (set \"RUNX_PROXY_DIRS=%RUNX_PROXY_DIR%;%RUNX_PROXY_DIRS%\") else (set \"RUNX_PROXY_DIRS=%RUNX_PROXY_DIR%\")\r\n")
 	content.WriteString("if exist " + utils.QuoteForCmd(runxPath) + " (\r\n")
 	content.WriteString("  " + utils.QuoteForCmd(runxPath) + " exec " + strings.Join(runxArgs, " ") + "\r\n")
 	content.WriteString("  set \"RUNX_EXIT_CODE=%ERRORLEVEL%\"\r\n")
@@ -816,9 +816,9 @@ func effectivePathFromRegistry() (string, error) {
 	return machinePath + ";" + userPath, nil
 }
 
-// verifyPathResolution checks if shim is resolved first based on registry PATH order.
+// verifyPathResolution checks if proxy is resolved first based on registry PATH order.
 // It does not rely on the current process environment, which may be stale.
-func verifyPathResolution(command, shimPath string) (shimFirst bool, actualPath string, err error) {
+func verifyPathResolution(command, proxyPath string) (proxyFirst bool, actualPath string, err error) {
 	effectivePath, err := effectivePathFromRegistry()
 	if err != nil {
 		return false, "", fmt.Errorf("failed to read effective PATH from registry: %w", err)
@@ -851,7 +851,7 @@ func verifyPathResolution(command, shimPath string) (shimFirst bool, actualPath 
 			continue
 		}
 		// First match is what will be executed
-		if strings.EqualFold(filepath.Clean(line), filepath.Clean(shimPath)) {
+		if strings.EqualFold(filepath.Clean(line), filepath.Clean(proxyPath)) {
 			return true, line, nil
 		}
 		return false, line, nil
@@ -867,23 +867,23 @@ func promptElevatePath(dir, command, blockedBy string) (elevate bool, useAlias b
 	fmt.Println("│ PATH Priority Issue Detected                                   │")
 	fmt.Println("└────────────────────────────────────────────────────────────────┘")
 	fmt.Println()
-	fmt.Printf("The user shim was added to User PATH, but won't be used because:\n")
+	fmt.Printf("The user proxy was added to User PATH, but won't be used because:\n")
 	fmt.Printf("  Original command: %s\n", blockedBy)
-	fmt.Printf("  User shim location: %s\\%s.cmd\n", dir, command)
+	fmt.Printf("  User proxy location: %s\\%s.cmd\n", dir, command)
 	fmt.Println()
 	fmt.Println("This happens because Windows prioritizes Machine PATH over User PATH.")
 	fmt.Println()
 	fmt.Println("Options:")
 	fmt.Println("  1. Elevate to Machine PATH (requires administrator privileges)")
 	fmt.Println("     - Remove from User PATH")
-	fmt.Println("     - Add machine shim to Machine PATH (system-wide)")
-	fmt.Println("     - Machine shim will take precedence")
+	fmt.Println("     - Add machine proxy to Machine PATH (system-wide)")
+	fmt.Println("     - Machine proxy will take precedence")
 	fmt.Println()
 	fmt.Println("  2. Use an alias instead")
-	fmt.Printf("     - Keep user shim in User PATH as-is\n")
-	fmt.Printf("     - Create shim with a different name (e.g., 'my%s')\n", command)
+	fmt.Printf("     - Keep user proxy in User PATH as-is\n")
+	fmt.Printf("     - Create proxy with a different name (e.g., 'my%s')\n", command)
 	fmt.Println()
-	fmt.Println("  3. Keep current setup (shim won't work as expected)")
+	fmt.Println("  3. Keep current setup (proxy won't work as expected)")
 	fmt.Println()
 	fmt.Print("Choose option (1/2/3): ")
 
@@ -905,26 +905,26 @@ func promptElevatePath(dir, command, blockedBy string) (elevate bool, useAlias b
 
 // handlePathElevation handles the process of elevating from User PATH to Machine PATH
 func handlePathElevation(dir, command, originalCommand string, envFiles []string, runxPath, originalPath string) error {
-	shimDir, err := machineShimDir()
+	proxyDir, err := machineProxyDir()
 	if err != nil {
-		return fmt.Errorf("failed to resolve machine shim directory: %w", err)
+		return fmt.Errorf("failed to resolve machine proxy directory: %w", err)
 	}
-	if err := os.MkdirAll(shimDir, 0755); err != nil {
-		return fmt.Errorf("failed to create machine shim directory: %w", err)
+	if err := os.MkdirAll(proxyDir, 0755); err != nil {
+		return fmt.Errorf("failed to create machine proxy directory: %w", err)
 	}
 
-	shimPath, err := machineShimPath(originalCommand)
+	proxyPath, err := machineProxyPath(originalCommand)
 	if err != nil {
-		return fmt.Errorf("failed to resolve machine shim path: %w", err)
+		return fmt.Errorf("failed to resolve machine proxy path: %w", err)
 	}
-	shimContent := buildMachineShim(originalCommand, envFiles, runxPath, originalPath)
-	if err := os.WriteFile(shimPath, []byte(shimContent), 0755); err != nil {
-		return fmt.Errorf("failed to write machine shim: %w", err)
+	proxyContent := buildMachineProxy(originalCommand, envFiles, runxPath, originalPath)
+	if err := os.WriteFile(proxyPath, []byte(proxyContent), 0755); err != nil {
+		return fmt.Errorf("failed to write machine proxy: %w", err)
 	}
-	fmt.Printf("✓ Created machine shim: %s\n", shimPath)
+	fmt.Printf("✓ Created machine proxy: %s\n", proxyPath)
 
-	// Add shared shim directory to Machine PATH first so we do not break existing setup on failure.
-	if err := addToMachinePath(shimDir); err != nil {
+	// Add shared proxy directory to Machine PATH first so we do not break existing setup on failure.
+	if err := addToMachinePath(proxyDir); err != nil {
 		if isAccessDeniedError(err) {
 			fmt.Println()
 			fmt.Println("❌ Administrator privileges required to modify Machine PATH")
@@ -937,31 +937,31 @@ func handlePathElevation(dir, command, originalCommand string, envFiles []string
 			fmt.Println("Or choose option 2 to use an alias instead.")
 			return fmt.Errorf("administrator privileges required: %w", err)
 		}
-		return fmt.Errorf("failed to add machine shim directory to Machine PATH: %w", err)
+		return fmt.Errorf("failed to add machine proxy directory to Machine PATH: %w", err)
 	}
-	fmt.Printf("✓ Added to Machine PATH (system-wide): %s\n", shimDir)
+	fmt.Printf("✓ Added to Machine PATH (system-wide): %s\n", proxyDir)
 
-	// Remove the old user shim file; machine shim now handles the command.
-	userShimPath := filepath.Join(dir, command+".cmd")
-	if err := os.Remove(userShimPath); err != nil {
+	// Remove the old user proxy file; machine proxy now handles the command.
+	userProxyPath := filepath.Join(dir, command+".cmd")
+	if err := os.Remove(userProxyPath); err != nil {
 		if !os.IsNotExist(err) {
-			fmt.Printf("⚠ Warning: failed to remove old user shim: %s (%v)\n", userShimPath, err)
+			fmt.Printf("⚠ Warning: failed to remove old user proxy: %s (%v)\n", userProxyPath, err)
 		}
 	} else {
-		fmt.Printf("✓ Removed old user shim: %s\n", userShimPath)
+		fmt.Printf("✓ Removed old user proxy: %s\n", userProxyPath)
 	}
 
-	// Remove user-local shim directory from User PATH only if no managed user shims remain.
-	if err := cleanupUserShimDirPathIfEmpty(dir); err != nil {
+	// Remove user-local proxy directory from User PATH only if no managed user proxies remain.
+	if err := cleanupUserProxyDirPathIfEmpty(dir); err != nil {
 		return err
 	}
 
-	// Verify resolution again against machine shim path.
-	shimFirst, actualPath, err := verifyPathResolution(command, shimPath)
+	// Verify resolution again against machine proxy path.
+	proxyFirst, actualPath, err := verifyPathResolution(command, proxyPath)
 	if err != nil {
 		fmt.Printf("⚠ Could not verify PATH resolution: %v\n", err)
-	} else if shimFirst {
-		fmt.Println("✓ Machine shim will now be used when you run:", command)
+	} else if proxyFirst {
+		fmt.Println("✓ Machine proxy will now be used when you run:", command)
 	} else {
 		fmt.Printf("⚠ Warning: '%s' still resolves to: %s\n", command, actualPath)
 		fmt.Println("  You may need to restart your terminal or reorder Machine PATH manually")

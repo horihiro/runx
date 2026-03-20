@@ -13,22 +13,22 @@ import (
 	"horihiro.net/runx/commands/utils"
 )
 
-func listShimsPlatform(shellOverride string) ([]string, error) {
+func listProxiesPlatform(shellOverride string) ([]string, error) {
 	shellName, err := utils.ResolveLinuxShell(shellOverride)
 	if err != nil {
 		return nil, err
 	}
-	return listLinuxShims(shellName)
+	return listLinuxProxies(shellName)
 }
 
-func listLinuxShims(shellName string) ([]string, error) {
+func listLinuxProxies(shellName string) ([]string, error) {
 	if shellName == "fish" {
-		return listFishShims()
+		return listFishProxies()
 	}
-	return listPosixShims(shellName)
+	return listPosixProxies(shellName)
 }
 
-func listPosixShims(shellName string) ([]string, error) {
+func listPosixProxies(shellName string) ([]string, error) {
 	rcPath, err := utils.LinuxShellRCPath(shellName)
 	if err != nil {
 		return nil, err
@@ -41,7 +41,7 @@ func listPosixShims(shellName string) ([]string, error) {
 		return nil, fmt.Errorf("failed to read shell rc file: %w", err)
 	}
 
-	prefix := "# " + utils.ShimMarker + " "
+	prefix := "# " + utils.ProxyMarker + " "
 	seen := map[string]bool{}
 	result := []string{}
 
@@ -62,7 +62,7 @@ func listPosixShims(shellName string) ([]string, error) {
 	return result, nil
 }
 
-func listFishShims() ([]string, error) {
+func listFishProxies() ([]string, error) {
 	functionsDir, err := utils.FishFunctionsDir()
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func listFishShims() ([]string, error) {
 		if err != nil {
 			continue
 		}
-		if !strings.Contains(string(content), "# "+utils.ShimMarker+" ") {
+		if !strings.Contains(string(content), "# "+utils.ProxyMarker+" ") {
 			continue
 		}
 		result = append(result, strings.TrimSuffix(entry.Name(), ".fish"))

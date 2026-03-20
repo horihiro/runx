@@ -31,10 +31,10 @@ func buildPosixFunction(command, originalCommand string, envFiles []string, runx
 	}
 
 	var content strings.Builder
-	content.WriteString("# " + utils.ShimMarker + " " + command + "\n")
+	content.WriteString("# " + utils.ProxyMarker + " " + command + "\n")
 	content.WriteString(command + "() {\n")
 
-	content.WriteString("  local RUNX_SHIM_ACTIVE=1\n")
+	content.WriteString("  local RUNX_PROXY_ACTIVE=1\n")
 	if len(envArgs) > 0 {
 		content.WriteString("  " + utils.QuoteForSh(runxPath) + " exec " + strings.Join(envArgs, " ") + " " + utils.QuoteForSh(originalCommand) + " \"$@\"\n")
 	} else {
@@ -55,7 +55,7 @@ func addCommandLinuxPosix(command string, originalCommand string, envFiles []str
 	existing, readErr := os.ReadFile(rcPath)
 	functionExists := false
 	if readErr == nil {
-		marker := "# " + utils.ShimMarker + " " + command
+		marker := "# " + utils.ProxyMarker + " " + command
 		for _, line := range strings.Split(string(existing), "\n") {
 			if strings.TrimSpace(line) == marker {
 				functionExists = true
@@ -166,9 +166,9 @@ func buildFishFunction(command string, originalCommand string, envFiles []string
 	}
 
 	var content strings.Builder
-	content.WriteString("# " + utils.ShimMarker + " " + command + "\n")
+	content.WriteString("# " + utils.ProxyMarker + " " + command + "\n")
 	content.WriteString("function " + command + "\n")
-	content.WriteString("  set -lx RUNX_SHIM_ACTIVE 1\n")
+	content.WriteString("  set -lx RUNX_PROXY_ACTIVE 1\n")
 	if len(envArgs) > 0 {
 		content.WriteString("  " + utils.QuoteForSh(runxPath) + " exec " + strings.Join(envArgs, " ") + " " + utils.QuoteForSh(originalCommand) + " $argv\n")
 	} else {
@@ -179,7 +179,7 @@ func buildFishFunction(command string, originalCommand string, envFiles []string
 }
 
 func upsertPosixShellFunction(rcPath, command, functionContent string) error {
-	marker := "# " + utils.ShimMarker + " " + command
+	marker := "# " + utils.ProxyMarker + " " + command
 
 	// Read existing content
 	var existingContent []byte

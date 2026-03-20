@@ -11,17 +11,17 @@ func ListCommand(args []string) error {
 		return err
 	}
 
-	shims, err := listShimsPlatform(shellOverride)
+	proxies, err := listProxiesPlatform(shellOverride)
 	if err != nil {
 		return err
 	}
 
-	if len(shims) == 0 {
-		fmt.Println("No runx shims found.")
+	if len(proxies) == 0 {
+		fmt.Println("No runx proxies found.")
 		return nil
 	}
 
-	for _, name := range shims {
+	for _, name := range proxies {
 		fmt.Println(name)
 	}
 	return nil

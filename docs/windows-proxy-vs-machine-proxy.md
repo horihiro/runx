@@ -1,4 +1,4 @@
-# Windows: User Shim vs Machine Shim
+# Windows: User Proxy vs Machine Proxy
 
 Windows has two PATH types with different precedence:
 
@@ -7,15 +7,15 @@ Windows has two PATH types with different precedence:
 
 ## When to Use Each
 
-| Scenario | Recommended Shim | Reason |
+| Scenario | Recommended Proxy | Reason |
 |----------|------------------|--------|
-| Original in System32 | Machine shim | Must have higher priority than Machine PATH |
-| Original in User PATH | User shim | Same priority level works |
-| Command not found | User shim | Easier, no admin needed |
+| Original in System32 | Machine proxy | Must have higher priority than Machine PATH |
+| Original in User PATH | User proxy | Same priority level works |
+| Command not found | User proxy | Easier, no admin needed |
 
 ## Automatic Detection
 
-`runx add` automatically detects where the original command exists and recommends the appropriate shim type:
+`runx add` automatically detects where the original command exists and recommends the appropriate proxy type:
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -27,13 +27,13 @@ The original command is in Machine PATH:
   Location: C:\Program Files\Git\cmd\git.exe
 
 Windows prioritizes Machine PATH over User PATH.
-Creating a User shim will not work - the Machine PATH entry will
+Creating a User proxy will not work - the Machine PATH entry will
 always take precedence.
 
-Recommendation: Create a Machine shim instead.
+Recommendation: Create a Machine proxy instead.
   • Requires administrator privileges
-  • Will be placed in: C:\ProgramData\runx\shim
+  • Will be placed in: C:\ProgramData\runx\proxy
   • Will be added to Machine PATH (system-wide)
 
-Create Machine shim now? (y/N):
+Create Machine proxy now? (y/N):
 ```

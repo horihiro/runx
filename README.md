@@ -1,6 +1,6 @@
-# runx - Environment-Aware Command Shim Manager
+# runx - Environment-Aware Command Proxy Manager
 
-`runx` is an environment-aware command shim manager—a cross-platform tool that creates command shims (wrappers) that automatically load environment variables from files before executing commands. Useful for managing cloud profiles, API keys, runtime settings, or any directory-scoped configuration.
+`runx` is an environment-aware command proxy manager—a cross-platform tool that creates command proxies (wrappers) that automatically load environment variables from files before executing commands. Useful for managing cloud profiles, API keys, runtime settings, or any directory-scoped configuration.
 
 ## Features
 
@@ -8,85 +8,10 @@
 - **📦 Single Binary, No Runtime Required**: Just one executable, no separate runtime installation needed
 - **📁 Directory-Based Context**: Automatically searches for environment files from current directory to root, then home directory
 - **🔄 Multiple Environment Files**: Merge multiple `.env` files with later values overriding earlier ones
-- **🎯 Command Shims**: Create persistent command wrappers that automatically load the correct environment
+- **🎯 Command Proxies**: Create persistent command wrappers that automatically load the correct environment
 - **🐚 Shell Support**: Bash, Zsh, Fish on Linux/macOS; CMD on Windows
 - **🔐 Windows PATH Management**: Smart User/Machine PATH detection with automatic privilege escalation when needed
 - **🐛 Debug Mode**: Set `RUNX_DEBUG=1` or `RUNX_DEBUG=2` for detailed environment file resolution tracing
-
-## Installation
-
-Install from GitHub Release Assets.
-
-### Ubuntu (.deb)
-
-1. Open the releases page: `https://github.com/horihiro/runx/releases`
-2. Open the release for the version you want to install (tag example: `v0.1.0`).
-3. Download the `.deb` asset for your architecture.
-	- `amd64`: `runx_<version>_amd64.deb`
-	- `arm64`: `runx_<version>_arm64.deb`
-4. Install with `apt`:
-
-```bash
-sudo apt install ./runx_<version>_<arch>.deb
-```
-
-5. Verify:
-
-```bash
-runx --version
-```
-
-### Windows (winget + manifest zip)
-
-1. Open the releases page: `https://github.com/horihiro/runx/releases`
-2. Open the release for the version you want to install (tag example: `v0.1.0`).
-3. Download `winget-manifest-<tag>.zip` from Release Assets.
-4. Extract the zip to a local directory.
-5. Install using `winget` with the extracted manifest files:
-
-```powershell
-winget install --manifest <ExtractedDirectory>
-```
-
-6. Verify:
-
-```powershell
-runx --version
-```
-
-### Manual Install (No Package Manager)
-
-#### Linux/macOS
-
-1. Open the releases page: `https://github.com/horihiro/runx/releases`
-2. Open the release for the version you want.
-3. Download the archive for your OS/arch.
-	- Linux: `runx-linux-amd64-<tag>.tar.gz`, `runx-linux-arm64-<tag>.tar.gz`
-	- macOS: `runx-darwin-amd64-<tag>.tar.gz`, `runx-darwin-arm64-<tag>.tar.gz`
-4. Extract and install the binary:
-
-```bash
-tar xzf runx-<os>-<arch>-<tag>.tar.gz
-sudo install -m 0755 runx /usr/local/bin/runx
-```
-
-5. Verify:
-
-```bash
-runx --version
-```
-
-#### Windows
-
-1. Open the releases page: `https://github.com/horihiro/runx/releases`
-2. Open the release for the version you want.
-3. Download `runx-windows-amd64-<tag>.zip`.
-4. Extract `runx.exe` and place it in a directory included in your `PATH`.
-5. Verify:
-
-```powershell
-runx --version
-```
 
 ## Build
 
@@ -121,7 +46,7 @@ Or any other name like `.env`, `dev.env`, etc.
 ### 2. Run Commands with Environment
 
 ```bash
-# Create a persistent shim
+# Create a persistent proxy
 runx add node --envfile=.myenv
 
 # Now 'node' automatically loads .myenv
@@ -156,12 +81,12 @@ runx exec --envfile=base.env --envfile=dev.env node app.js
 runx exec echo "Hello"
 ```
 
-### `runx add` - Create Command Shim
+### `runx add` - Create Command Proxy
 
-Create a command shim that automatically loads specified environment files.
+Create a command proxy that automatically loads specified environment files.
 
 ```bash
-runx add ORIGINAL_COMMAND [--alias=SHIM_NAME] [--envfile=NAME ...] [--shell=bash|zsh|fish]
+runx add ORIGINAL_COMMAND [--alias=PROXY_NAME] [--envfile=NAME ...] [--shell=bash|zsh|fish]
 ```
 
 **Examples:**
@@ -179,16 +104,16 @@ runx add kubectl --envfile=k8s.env --shell=zsh
 # Multiple environment files
 runx add node --envfile=base.env --envfile=dev.env
 
-# Alias shim name (mytf executes original terraform)
+# Alias proxy name (mytf executes original terraform)
 runx add terraform --alias=mytf --envfile=.env
 ```
 
 **What happens on Windows:**
 
 1. Checks if original command exists in Machine PATH or User PATH
-2. If in **Machine PATH**: Recommends creating a Machine shim (requires admin privileges)
-3. If in **User PATH** or not found: Creates User shim in `%LOCALAPPDATA%\runx\shim`
-4. Automatically adds shim directory to User PATH if needed
+2. If in **Machine PATH**: Recommends creating a Machine proxy (requires admin privileges)
+3. If in **User PATH** or not found: Creates User proxy in `%LOCALAPPDATA%\runx\proxy`
+4. Automatically adds proxy directory to User PATH if needed
 5. Handles PATH priority conflicts intelligently
 
 **What happens on Linux/macOS:**
@@ -197,9 +122,9 @@ runx add terraform --alias=mytf --envfile=.env
 2. Function calls `runx exec` with specified environment files
 3. No PATH modification needed
 
-### `runx remove` - Remove Command Shim
+### `runx remove` - Remove Command Proxy
 
-Remove a previously created command shim.
+Remove a previously created command proxy.
 
 ```bash
 runx remove COMMAND [--shell=bash|zsh|fish]
@@ -215,9 +140,9 @@ runx remove az
 runx remove az --shell=bash
 ```
 
-### `runx list` - List Command Shims
+### `runx list` - List Command Proxies
 
-List all command shims created by runx.
+List all command proxies created by runx.
 
 ```bash
 runx list [--shell=bash|zsh|fish]
@@ -325,7 +250,7 @@ $ cat ~/project-b/.env
 TF_WORKSPACE=project-b
 AWS_PROFILE=project-b
 
-# Create terraform shim
+# Create terraform proxy
 $ runx add terraform --envfile=.env
 
 # 'terraform' now picks env from the current directory tree
@@ -361,17 +286,17 @@ $ runx add node --envfile=base.env --envfile=secrets.env
 $ node app.js
 ```
 
-### Alias Shim Name
+### Alias Proxy Name
 
 ```bash
-# Create project-specific shim name that executes terraform
+# Create project-specific proxy name that executes terraform
 runx add terraform --alias=mytf --envfile=.env
 
 # Original 'terraform' still works normally
 # 'mytf' runs original 'terraform' with environment loaded by runx
 ```
 
-### Shell-Specific Shims
+### Shell-Specific Proxies
 
 ```bash
 runx add kubectl --envfile=k8s.env --shell=bash
@@ -379,7 +304,7 @@ runx add kubectl --envfile=k8s.env --shell=zsh
 runx add kubectl --envfile=k8s.env --shell=fish
 ```
 
-### One-Off Execution (No Shim)
+### One-Off Execution (No Proxy)
 
 ```bash
 $ runx exec --envfile=test.env pytest
@@ -388,15 +313,15 @@ $ runx exec --envfile=staging.env curl https://api.example.com
 
 ## Architecture
 
-See architecture details for Windows shim and Bash function behavior:
+See architecture details for Windows proxy and Bash function behavior:
 
 - [docs/architecture.md](docs/architecture.md)
 
-## Windows: User Shim vs Machine Shim
+## Windows: User Proxy vs Machine Proxy
 
 See detailed guidance:
 
-- [docs/windows-shim-vs-machine-shim.md](docs/windows-shim-vs-machine-shim.md)
+- [docs/windows-proxy-vs-machine-proxy.md](docs/windows-proxy-vs-machine-proxy.md)
 
 ## Troubleshooting
 

@@ -19,22 +19,22 @@ func removeCommandPlatform(command, shellOverride string) error {
 }
 
 func removeCommandWindows(command string) error {
-	shimDir, err := windowsShimDir()
+	proxyDir, err := windowsProxyDir()
 	if err != nil {
 		return err
 	}
-	shimPath := filepath.Join(shimDir, command+".cmd")
+	proxyPath := filepath.Join(proxyDir, command+".cmd")
 
-	managed, err := utils.IsManagedShim(shimPath)
+	managed, err := utils.IsManagedProxy(proxyPath)
 	if err == nil {
 		if !managed {
-			return fmt.Errorf("file is not a runx-generated shim: %s", shimPath)
+			return fmt.Errorf("file is not a runx-generated proxy: %s", proxyPath)
 		}
-		if err := os.Remove(shimPath); err != nil {
-			return fmt.Errorf("failed to remove shim: %w", err)
+		if err := os.Remove(proxyPath); err != nil {
+			return fmt.Errorf("failed to remove proxy: %w", err)
 		}
-		fmt.Printf("Shim removed: %s\n", shimPath)
-		if err := cleanupUserShimDirPathIfEmpty(shimDir); err != nil {
+		fmt.Printf("Proxy removed: %s\n", proxyPath)
+		if err := cleanupUserProxyDirPathIfEmpty(proxyDir); err != nil {
 			return err
 		}
 		return nil
@@ -43,7 +43,7 @@ func removeCommandWindows(command string) error {
 		return err
 	}
 
-	// Fallback for shims created by older versions near runx executable.
+	// Fallback for proxies created by older versions near runx executable.
 	runxPath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to resolve runx path: %w", err)
@@ -53,41 +53,41 @@ func removeCommandWindows(command string) error {
 		return fmt.Errorf("failed to resolve symlink for runx path: %w", err)
 	}
 	runxDir := filepath.Dir(runxPath)
-	shimPath = filepath.Join(runxDir, command+".cmd")
-	managed, err = utils.IsManagedShim(shimPath)
+	proxyPath = filepath.Join(runxDir, command+".cmd")
+	managed, err = utils.IsManagedProxy(proxyPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// Also check machine shim directory.
-			if machineDir, mErr := machineShimDir(); mErr == nil {
-				machineShim := filepath.Join(machineDir, command+".cmd")
-				if mManaged, mErr := utils.IsManagedShim(machineShim); mErr == nil {
+			// Also check machine proxy directory.
+			if machineDir, mErr := machineProxyDir(); mErr == nil {
+				machineProxy := filepath.Join(machineDir, command+".cmd")
+				if mManaged, mErr := utils.IsManagedProxy(machineProxy); mErr == nil {
 					if !mManaged {
-						return fmt.Errorf("file is not a runx-generated shim: %s", machineShim)
+						return fmt.Errorf("file is not a runx-generated proxy: %s", machineProxy)
 					}
-					if err := os.Remove(machineShim); err != nil {
-						return fmt.Errorf("failed to remove machine shim (try running as Administrator): %w", err)
+					if err := os.Remove(machineProxy); err != nil {
+						return fmt.Errorf("failed to remove machine proxy (try running as Administrator): %w", err)
 					}
-					fmt.Printf("Machine shim removed: %s\n", machineShim)
-					if err := cleanupMachineShimDirPathIfEmpty(machineDir); err != nil {
+					fmt.Printf("Machine proxy removed: %s\n", machineProxy)
+					if err := cleanupMachineProxyDirPathIfEmpty(machineDir); err != nil {
 						return err
 					}
 					return nil
 				}
 			}
-			return fmt.Errorf("shim not found: %s", filepath.Join(shimDir, command+".cmd"))
+			return fmt.Errorf("proxy not found: %s", filepath.Join(proxyDir, command+".cmd"))
 		}
 		return err
 	}
 	if !managed {
-		return fmt.Errorf("file is not a runx-generated shim: %s", shimPath)
+		return fmt.Errorf("file is not a runx-generated proxy: %s", proxyPath)
 	}
 
-	if err := os.Remove(shimPath); err != nil {
-		return fmt.Errorf("failed to remove shim: %w", err)
+	if err := os.Remove(proxyPath); err != nil {
+		return fmt.Errorf("failed to remove proxy: %w", err)
 	}
 
-	fmt.Printf("Shim removed: %s\n", shimPath)
-	if err := cleanupUserShimDirPathIfEmpty(shimDir); err != nil {
+	fmt.Printf("Proxy removed: %s\n", proxyPath)
+	if err := cleanupUserProxyDirPathIfEmpty(proxyDir); err != nil {
 		return err
 	}
 	return nil

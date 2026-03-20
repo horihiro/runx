@@ -133,7 +133,7 @@ jobs:
           SECTION: utils
           PRIORITY: optional
           MAINTAINER: horihiro
-          DESCRIPTION: Environment-aware command shim manager
+          DESCRIPTION: Environment-aware command proxy manager
           HOMEPAGE: https://github.com/horihiro/runx
           LICENSE: MIT
           BINARY_NAME: runx
