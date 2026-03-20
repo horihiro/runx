@@ -12,4 +12,4 @@ Installers:
     InstallerUrl: https://github.com/horihiro/runx/releases/download/v0.0.0/runx-windows-amd64-v0.0.0.zip
     InstallerSha256: PLACEHOLDER_SHA256
 ManifestType: installer
-ManifestVersion: 1.10.0
+ManifestVersion: 1.12.0
