@@ -1,5 +1,12 @@
 # Windows: User Proxy vs Machine Proxy
 
+`runx` creates command proxies as `.cmd` files in one of two locations:
+
+- **User Proxy**: Placed in `%LOCALAPPDATA%\runx\proxy`, no admin needed, added to User PATH
+- **Machine Proxy**: Placed in `C:\ProgramData\runx\proxy`, requires admin, added to Machine PATH (system-wide)
+
+## PATH Priority
+
 Windows has two PATH types with different precedence:
 
 - **Machine PATH**: System-wide, requires admin privileges, **higher priority**
