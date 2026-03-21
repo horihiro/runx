@@ -67,6 +67,7 @@ jobs:
         run: |
           if [ "${{ matrix.goos }}" = "windows" ]; then
             zip ${{ matrix.asset_name }}-${{ steps.tag.outputs.name }}.zip ${{ matrix.binary_name }} LICENSE README.md
+            cp ${{ matrix.binary_name }} ${{ matrix.asset_name }}-${{ steps.tag.outputs.name }}.exe
           else
             tar czf ${{ matrix.asset_name }}-${{ steps.tag.outputs.name }}.tar.gz ${{ matrix.binary_name }} LICENSE README.md
           fi
@@ -191,17 +192,17 @@ jobs:
           echo "tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Download Windows release asset
+      - name: Download Windows release executable
         run: |
-          ASSET_URL="https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/runx-windows-amd64-${{ steps.version.outputs.tag }}.zip"
-          curl -L -o runx-windows.zip "$ASSET_URL"
+          ASSET_URL="https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/runx-windows-amd64-${{ steps.version.outputs.tag }}.exe"
+          curl -L -o runx-windows.exe "$ASSET_URL"
 
       - name: Compute SHA256
         id: sha256
         run: |
-          SHA256=$(sha256sum runx-windows.zip | awk '{print $1}')
+          SHA256=$(sha256sum runx-windows.exe | awk '{print $1}')
           echo "hash=$SHA256" >> "$GITHUB_OUTPUT"
-          echo "Windows zip SHA256: $SHA256"
+          echo "Windows exe SHA256: $SHA256"
 
       - name: Update winget manifest
         run: |
@@ -223,8 +224,7 @@ jobs:
 
           # Update installer manifest
           sed -i "s/^PackageVersion:.*/PackageVersion: $VERSION/" "$INSTALLER_FILE"
-          sed -i "s|releases/download/v[0-9.]*/|releases/download/$TAG/|g" "$INSTALLER_FILE"
-          sed -i "s/runx-windows-amd64-v[0-9.]*.zip/runx-windows-amd64-$TAG.zip/g" "$INSTALLER_FILE"
+          sed -i "s|^    InstallerUrl:.*|    InstallerUrl: https://github.com/$REPO/releases/download/$TAG/runx-windows-amd64-$TAG.exe|" "$INSTALLER_FILE"
           sed -i "s/InstallerSha256:.*/InstallerSha256: $SHA256/" "$INSTALLER_FILE"
 
           # Update locale manifest
