@@ -13,6 +13,15 @@
 - **🔐 Windows PATH Management**: Smart User/Machine PATH detection with automatic privilege escalation when needed
 - **🐛 Debug Mode**: Set `RUNX_DEBUG=1` or `RUNX_DEBUG=2` for detailed environment file resolution tracing
 
+## Existing Tools and Where `runx` Fits
+
+There are already several strong tools in this space, each with a proven workflow.
+
+- **`direnv`**: A widely trusted option that automatically loads and unloads environment variables when you enter or leave directories via shell hooks. It is excellent for full directory-level automation.
+- **`dotenv-cli` / `dotenvx` style tools**: Reliable and practical tools for explicit one-off command execution with env files (for example, `dotenv -e .env -- cmd`).
+
+Compared to those approaches, `runx` focuses on a different operating model: persistent command proxies managed with `add/list/remove`, command-time environment application (instead of always-on directory hooks), consistent cross-platform behavior, and built-in Windows PATH handling.
+
 ## Install
 
 Download artifacts from GitHub Releases:
@@ -22,24 +31,55 @@ https://github.com/horihiro/runx/releases
 ### Linux (deb package)
 
 ```bash
+curl -LO https://github.com/horihiro/runx/releases/download/v<version>/runx_<version>_<arch>.deb
 sudo apt install ./runx_<version>_<arch>.deb
 runx --version
+```
+
+Uninstall:
+
+```bash
+sudo apt remove runx
 ```
 
 ### Linux/macOS (tar.gz)
 
 ```bash
-tar xzf runx-<os>-<arch>-<tag>.tar.gz
+curl -LO https://github.com/horihiro/runx/releases/download/v<version>/runx-<os>-<arch>-v<version>.tar.gz
+tar xzf runx-<os>-<arch>-v<version>.tar.gz
 sudo install -m 0755 runx /usr/local/bin/runx
 runx --version
 ```
 
+Uninstall:
+
+```bash
+sudo rm -f /usr/local/bin/runx
+```
+
 ### Windows (winget manifest artifact)
 
-Download and extract `winget-manifest-<tag>.zip` from Releases, then run:
+You can install `runx` from the official winget community repository:
 
 ```powershell
-winget install --manifest <ExtractedDirectory>
+winget install --id horihiro.runx
+runx --version
+```
+
+Uninstall:
+
+```powershell
+winget uninstall --id horihiro.runx
+```
+
+If you want to test a release artifact manifest locally before it is published to the official winget repository, use the following flow:
+
+```powershell
+curl -LO https://github.com/horihiro/runx/releases/download/v<version>/runx-winget-manifest-v<version>.zip
+mkdir .\temp
+tar xzf runx-winget-manifest-v<version>.zip -C .\temp
+sudo winget settings --enable LocalManifestFiles
+winget install --manifest .\temp
 runx --version
 ```
 
