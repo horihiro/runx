@@ -85,7 +85,27 @@ runx list
 
 If `az` appears in the output, the proxy is registered.
 
-### 5. One-off execution (no registration)
+### 5. Preview which environment variables will be applied
+
+Before running a command, you can inspect which env vars will be injected in the current directory.
+
+```bash
+cd ~/work/az_profile1
+runx env az
+# AZURE_CONFIG_DIR=/home/user/.azure_profile1
+
+cd ~/work/az_profile2
+runx env az
+# AZURE_CONFIG_DIR=/home/user/.azure_profile2
+```
+
+You can also add extra env files on top of the registered ones to see how an override would look:
+
+```bash
+runx env az --envfile=.extra.env
+```
+
+### 7. One-off execution (no registration)
 
 To run a command with a specific env file once without registering a proxy, use `runx exec`:
 
@@ -94,7 +114,13 @@ cd ~/work/az_profile1
 runx exec --envfile=.azclienv az account show
 ```
 
-### 6. Remove the proxy
+You can preview what that one-off execution would inject before actually running it:
+
+```bash
+runx env --envfile=.azclienv
+```
+
+### 8. Remove the proxy
 
 When the proxy is no longer needed, remove it:
 

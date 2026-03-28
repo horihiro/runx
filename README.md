@@ -199,20 +199,28 @@ runx add terraform --alias=mytf --envfile=.env
 Preview which environment variables are set from resolved env files at the current location.
 
 ```bash
-runx env [--envfile=NAME ...]
+runx env [COMMAND_OR_ALIAS] [--envfile=NAME ...] [--shell=bash|zsh|fish]
 ```
 
 Notes:
 
-- Command name/alias is not required
-- Prints merged `KEY=VALUE` entries resolved from the specified env files
+- If `COMMAND_OR_ALIAS` is specified, envfiles registered by `runx add` are loaded first
+- Additional `--envfile` values can be combined and are applied after registered envfiles
+- Command name/alias is optional
+- Prints merged `KEY=VALUE` entries resolved from the final envfile list
 - Prints `(none)` if no entries are resolved
 
 Examples:
 
 ```bash
+# Use envfiles registered for command alias `az`
+runx env az
+
 # Check merged entries from layered env files
 runx env --envfile=base.env --envfile=dev.env
+
+# Combine registered envfiles and ad-hoc overrides
+runx env az --envfile=override.env
 
 # Minimal form (current directory tree + home resolution)
 runx env --envfile=.env
