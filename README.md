@@ -194,6 +194,30 @@ runx add terraform --alias=mytf --envfile=.env
 2. Function calls `runx exec` with specified environment files
 3. No PATH modification needed
 
+### `runx env` - Preview Resolved Environment Variables
+
+Preview which environment variables are set from resolved env files at the current location.
+
+```bash
+runx env [--envfile=NAME ...]
+```
+
+Notes:
+
+- Command name/alias is not required
+- Prints merged `KEY=VALUE` entries resolved from the specified env files
+- Prints `(none)` if no entries are resolved
+
+Examples:
+
+```bash
+# Check merged entries from layered env files
+runx env --envfile=base.env --envfile=dev.env
+
+# Minimal form (current directory tree + home resolution)
+runx env --envfile=.env
+```
+
 ### `runx remove` - Remove Command Proxy
 
 Remove a previously created command proxy.

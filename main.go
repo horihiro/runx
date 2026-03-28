@@ -35,6 +35,8 @@ func run(args []string) error {
 		return commands.ListCommand(args[1:])
 	case "show":
 		return commands.ShowCommand(args[1:])
+	case "env":
+		return commands.EnvCommand(args[1:])
 	case "help", "--help", "-h":
 		printHelp()
 		return nil
@@ -55,6 +57,7 @@ func printHelp() {
 	fmt.Println("  runx remove COMMAND [--shell=bash|zsh|fish]")
 	fmt.Println("  runx list [--shell=bash|zsh|fish]")
 	fmt.Println("  runx show COMMAND_OR_ALIAS [--shell=bash|zsh|fish]")
+	fmt.Println("  runx env [--envfile=NAME ...]")
 	fmt.Println("  runx help")
 	fmt.Println("  runx version")
 	fmt.Println()
@@ -64,6 +67,7 @@ func printHelp() {
 	fmt.Println("  runx remove mycmd --shell=fish")
 	fmt.Println("  runx list --shell=bash")
 	fmt.Println("  runx show az --shell=zsh")
+	fmt.Println("  runx env --envfile=.env")
 	fmt.Println()
 	fmt.Println("NOTES:")
 	fmt.Println("  - --envfile accepts a file name or absolute path")
@@ -71,5 +75,6 @@ func printHelp() {
 	fmt.Println("  - absolute path: only that file is checked")
 	fmt.Println("  - for exec: env files are merged in order; later files override earlier values")
 	fmt.Println("  - Linux proxy shells: auto-detected from $SHELL (bash|zsh|fish), override with --shell")
+	fmt.Println("  - env: prints merged env entries resolved from --envfile arguments in current location")
 	fmt.Println("  - proxies: Linux uses shell function files/config, Windows uses %LOCALAPPDATA%\\runx\\bin")
 }
