@@ -88,20 +88,33 @@ func addCommandWindows(command, originalCommand string, envFiles []string, runxP
 		fmt.Println("  • Will be placed in: C:\\ProgramData\\runx\\proxy")
 		fmt.Println("  • Will be added to Machine PATH (system-wide)")
 		fmt.Println()
-		fmt.Print("Create Machine proxy now? (y/N): ")
 
-		var response string
-		if _, err := fmt.Scanln(&response); err != nil && err.Error() != "unexpected newline" {
-			return nil
+		if !isElevated() {
+			fmt.Println("❌ Administrator privileges required to create a Machine proxy.")
+			fmt.Println()
+			fmt.Println("Please run this command in an elevated terminal (Run as Administrator):")
+			fmt.Printf("  runx add %s\n", originalCommand)
+			fmt.Println()
+			fmt.Println("Note: 'sudo cmd.exe' does not grant a Windows administrator token.")
+			fmt.Println("      Start Command Prompt/PowerShell with 'Run as administrator'.")
+			fmt.Println()
+			fmt.Println("Alternative options:")
+		} else {
+			fmt.Print("Create Machine proxy now? (y/N): ")
+
+			var response string
+			if _, err := fmt.Scanln(&response); err != nil && err.Error() != "unexpected newline" {
+				return nil
+			}
+
+			response = strings.ToLower(strings.TrimSpace(response))
+			if response == "y" || response == "yes" {
+				return handlePathElevation(proxyDir, command, originalCommand, envFiles, runxPath, proxyConflictPath)
+			}
+
+			fmt.Println()
+			fmt.Println("Alternative options:")
 		}
-
-		response = strings.ToLower(strings.TrimSpace(response))
-		if response == "y" || response == "yes" {
-			return handlePathElevation(proxyDir, command, originalCommand, envFiles, runxPath, proxyConflictPath)
-		}
-
-		fmt.Println()
-		fmt.Println("Alternative options:")
 		if command == originalCommand {
 			fmt.Printf("  1. Create an alias proxy: runx add %s --alias=my%s --envfile=...\n", originalCommand, originalCommand)
 			fmt.Println("  2. Use runx exec directly: runx exec --envfile=... " + originalCommand)
@@ -783,6 +796,21 @@ func buildMachineProxy(originalCommand string, envFiles []string, runxPath, orig
 	return content.String()
 }
 
+// isElevated checks whether the current process has administrator privileges
+// by attempting to open the Machine PATH registry key for writing.
+func isElevated() bool {
+	k, err := registry.OpenKey(
+		registry.LOCAL_MACHINE,
+		`System\CurrentControlSet\Control\Session Manager\Environment`,
+		registry.SET_VALUE,
+	)
+	if err != nil {
+		return false
+	}
+	k.Close()
+	return true
+}
+
 func isAccessDeniedError(err error) bool {
 	if err == nil {
 		return false
@@ -862,6 +890,7 @@ func verifyPathResolution(command, proxyPath string) (proxyFirst bool, actualPat
 
 // promptElevatePath asks user if they want to elevate to Machine PATH
 func promptElevatePath(dir, command, blockedBy string) (elevate bool, useAlias bool) {
+	elevated := isElevated()
 	fmt.Println()
 	fmt.Println("┌────────────────────────────────────────────────────────────────┐")
 	fmt.Println("│ PATH Priority Issue Detected                                   │")
@@ -874,7 +903,11 @@ func promptElevatePath(dir, command, blockedBy string) (elevate bool, useAlias b
 	fmt.Println("This happens because Windows prioritizes Machine PATH over User PATH.")
 	fmt.Println()
 	fmt.Println("Options:")
-	fmt.Println("  1. Elevate to Machine PATH (requires administrator privileges)")
+	if elevated {
+		fmt.Println("  1. Elevate to Machine PATH (requires administrator privileges)")
+	} else {
+		fmt.Println("  1. Elevate to Machine PATH (not available - requires Run as Administrator)")
+	}
 	fmt.Println("     - Remove from User PATH")
 	fmt.Println("     - Add machine proxy to Machine PATH (system-wide)")
 	fmt.Println("     - Machine proxy will take precedence")
@@ -895,6 +928,14 @@ func promptElevatePath(dir, command, blockedBy string) (elevate bool, useAlias b
 	response = strings.TrimSpace(response)
 	switch response {
 	case "1":
+		if !elevated {
+			fmt.Println()
+			fmt.Println("❌ Administrator privileges required.")
+			fmt.Println("Please run this command in an elevated terminal (Run as Administrator):")
+			fmt.Printf("  runx add %s\n", command)
+			fmt.Println()
+			return false, false
+		}
 		return true, false
 	case "2":
 		return false, true
@@ -905,6 +946,22 @@ func promptElevatePath(dir, command, blockedBy string) (elevate bool, useAlias b
 
 // handlePathElevation handles the process of elevating from User PATH to Machine PATH
 func handlePathElevation(dir, command, originalCommand string, envFiles []string, runxPath, originalPath string) error {
+	if !isElevated() {
+		fmt.Println()
+		fmt.Println("❌ Administrator privileges required to modify Machine PATH")
+		fmt.Println()
+		fmt.Println("Please run this command in an elevated terminal (Run as Administrator):")
+		fmt.Printf("  runx add %s", originalCommand)
+		if command != originalCommand {
+			fmt.Printf(" --alias=%s", command)
+		}
+		fmt.Println()
+		fmt.Println()
+		fmt.Println("Note: 'sudo cmd.exe' does not grant a Windows administrator token.")
+		fmt.Println("      Start Command Prompt/PowerShell with 'Run as administrator'.")
+		return fmt.Errorf("administrator privileges required")
+	}
+
 	proxyDir, err := machineProxyDir()
 	if err != nil {
 		return fmt.Errorf("failed to resolve machine proxy directory: %w", err)
@@ -925,18 +982,6 @@ func handlePathElevation(dir, command, originalCommand string, envFiles []string
 
 	// Add shared proxy directory to Machine PATH first so we do not break existing setup on failure.
 	if err := addToMachinePath(proxyDir); err != nil {
-		if isAccessDeniedError(err) {
-			fmt.Println()
-			fmt.Println("❌ Administrator privileges required to modify Machine PATH")
-			fmt.Println()
-			fmt.Println("Please run this command in an elevated terminal (Run as Administrator):")
-			fmt.Printf("  runx add %s --alias=%s\n", originalCommand, command)
-			fmt.Println()
-			fmt.Println("Note: 'sudo cmd.exe' does not grant a Windows administrator token.")
-			fmt.Println("      Start Command Prompt/PowerShell with 'Run as administrator'.")
-			fmt.Println("Or choose option 2 to use an alias instead.")
-			return fmt.Errorf("administrator privileges required: %w", err)
-		}
 		return fmt.Errorf("failed to add machine proxy directory to Machine PATH: %w", err)
 	}
 	fmt.Printf("✓ Added to Machine PATH (system-wide): %s\n", proxyDir)
