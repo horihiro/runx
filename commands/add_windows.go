@@ -89,7 +89,7 @@ func addCommandWindows(command, originalCommand string, envFiles []string, runxP
 		fmt.Println("  • Will be added to Machine PATH (system-wide)")
 		fmt.Println()
 
-		if !isElevated() {
+		if !utils.IsElevated() {
 			fmt.Println("❌ Administrator privileges required to create a Machine proxy.")
 			fmt.Println()
 			fmt.Println("Please run this command in an elevated terminal (Run as Administrator):")
@@ -796,21 +796,6 @@ func buildMachineProxy(originalCommand string, envFiles []string, runxPath, orig
 	return content.String()
 }
 
-// isElevated checks whether the current process has administrator privileges
-// by attempting to open the Machine PATH registry key for writing.
-func isElevated() bool {
-	k, err := registry.OpenKey(
-		registry.LOCAL_MACHINE,
-		`System\CurrentControlSet\Control\Session Manager\Environment`,
-		registry.SET_VALUE,
-	)
-	if err != nil {
-		return false
-	}
-	k.Close()
-	return true
-}
-
 func isAccessDeniedError(err error) bool {
 	if err == nil {
 		return false
@@ -890,7 +875,7 @@ func verifyPathResolution(command, proxyPath string) (proxyFirst bool, actualPat
 
 // promptElevatePath asks user if they want to elevate to Machine PATH
 func promptElevatePath(dir, command, blockedBy string) (elevate bool, useAlias bool) {
-	elevated := isElevated()
+	elevated := utils.IsElevated()
 	fmt.Println()
 	fmt.Println("┌────────────────────────────────────────────────────────────────┐")
 	fmt.Println("│ PATH Priority Issue Detected                                   │")
@@ -946,7 +931,7 @@ func promptElevatePath(dir, command, blockedBy string) (elevate bool, useAlias b
 
 // handlePathElevation handles the process of elevating from User PATH to Machine PATH
 func handlePathElevation(dir, command, originalCommand string, envFiles []string, runxPath, originalPath string) error {
-	if !isElevated() {
+	if !utils.IsElevated() {
 		fmt.Println()
 		fmt.Println("❌ Administrator privileges required to modify Machine PATH")
 		fmt.Println()

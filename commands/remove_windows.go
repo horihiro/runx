@@ -64,6 +64,11 @@ func removeCommandWindows(command string) error {
 					if !mManaged {
 						return fmt.Errorf("file is not a runx-generated proxy: %s", machineProxy)
 					}
+					if !utils.IsElevated() {
+						fmt.Println("❌ Administrator privileges required to remove machine proxy")
+						fmt.Println("Please run from an elevated terminal (Run as Administrator).")
+						return fmt.Errorf("administrator privileges required")
+					}
 					if err := os.Remove(machineProxy); err != nil {
 						return fmt.Errorf("failed to remove machine proxy (try running as Administrator): %w", err)
 					}
