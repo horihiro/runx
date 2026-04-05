@@ -132,27 +132,6 @@ runx exec --envfile=.myenv node app.js
 
 ## Commands
 
-### `runx exec` - Execute with Environment
-
-Run a command with merged environment variables from one or more files.
-
-```bash
-runx exec [--envfile=NAME ...] COMMAND [ARGS...]
-```
-
-**Examples:**
-
-```bash
-# Single environment file
-runx exec --envfile=.myenv node app.js
-
-# Multiple files (merged in order, later overrides earlier)
-runx exec --envfile=base.env --envfile=dev.env node app.js
-
-# No environment files (just pass through)
-runx exec echo "Hello"
-```
-
 ### `runx add` - Create Command Proxy
 
 Create a command proxy that automatically loads specified environment files.
@@ -193,6 +172,28 @@ runx add terraform --alias=mytf --envfile=.env
 1. Creates a shell function in your shell config file (`~/.bashrc`, `~/.zshrc`, or `~/.config/fish/config.fish`)
 2. Function calls `runx exec` with specified environment files
 3. No PATH modification needed
+
+### `runx exec` - Execute with Environment Directly
+
+`runx add`-created proxies use `runx exec` under the hood.
+You can also run `runx exec` directly for one-off execution without creating a proxy.
+
+```bash
+runx exec [--envfile=NAME ...] COMMAND [ARGS...]
+```
+
+**Examples:**
+
+```bash
+# One-off execution with a single environment file
+runx exec --envfile=.myenv node app.js
+
+# Multiple files (merged in order, later overrides earlier)
+runx exec --envfile=base.env --envfile=dev.env node app.js
+
+# No environment files (just pass through)
+runx exec echo "Hello"
+```
 
 ### `runx env` - Preview Resolved Environment Variables
 
